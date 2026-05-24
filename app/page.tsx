@@ -1,101 +1,93 @@
-import Image from "next/image";
+'use client';
+// Landing page = the free, ephemeral SPC chart. State lives only in this
+// component's useState — nothing is written to localStorage. The navbar
+// links to the /projects workspace where work *is* persisted (locally).
+
+import { useState } from 'react';
+import Link from 'next/link';
+import MeasureView from '@/app/spc/MeasureView';
+import { createSeedProject } from '@/lib/project/seed';
+import {
+  addEmptyRow,
+  setMeasureRows,
+  setMeasureSetup,
+  setRowRecalculation,
+  updateMeasureMeta,
+  updateMeasureSettings,
+  updateRowField,
+  type RowField,
+} from '@/lib/project/operations';
+import type { ChartSettings, Project, RecalcJustification } from '@/lib/project/types';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  // Seed a single-measure project. Only the first measure is shown; the
+  // rest of the Project shape exists to satisfy MeasureView's prop
+  // contract (events lookup will return [] since there's no driver
+  // diagram or incident dataset).
+  const [project, setProject] = useState<Project>(() => {
+    const seed = createSeedProject();
+    return { ...seed, measures: seed.measures.slice(0, 1) };
+  });
+  const measure = project.measures[0];
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <header className="border-b border-gray-200 bg-white">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
+          <Link href="/" className="font-semibold text-gray-900 hover:text-blue-700">
+            SPC
+          </Link>
+          <nav className="flex items-center gap-4 text-sm">
+            <Link href="/projects" className="text-gray-700 hover:text-blue-700">
+              My projects
+            </Link>
+          </nav>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </header>
+
+      <div className="bg-amber-50 border-b border-amber-200">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+          <span>
+            You&rsquo;re in the free chart. Changes live only in this browser tab and will be
+            lost when you close it. Open <strong>My projects</strong> to keep your work.
+          </span>
+        </div>
+      </div>
+
+      {measure ? (
+        <MeasureView
+          measure={measure}
+          project={project}
+          onUpdateRowField={(rowIndex, field, value) =>
+            setProject(
+              updateRowField(project, measure.id, rowIndex, field as RowField, value),
+            )
+          }
+          onAddRow={(date) => setProject(addEmptyRow(project, measure.id, date))}
+          onSetRecalculation={(rowIndex, justification: RecalcJustification | null) =>
+            setProject(setRowRecalculation(project, measure.id, rowIndex, justification))
+          }
+          onUpdateSettings={(patch: Partial<ChartSettings>) =>
+            setProject(updateMeasureSettings(project, measure.id, patch))
+          }
+          onUpdateRows={(rows) => setProject(setMeasureRows(project, measure.id, rows))}
+          onUpdateMeasureMeta={(patch) =>
+            setProject(updateMeasureMeta(project, measure.id, patch))
+          }
+          onSetupMeasure={({ rows, increment, name, settings, chartKind, aim }) =>
+            setProject(
+              setMeasureSetup(project, measure.id, rows, increment, {
+                name,
+                settings,
+                chartKind,
+                aim,
+              }),
+            )
+          }
+        />
+      ) : (
+        <p className="px-6 py-10 text-gray-500">No measure to display.</p>
+      )}
+    </main>
   );
 }

@@ -9,19 +9,41 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #ffffff;
     --foreground: #ededed;
   }
 }
 
 body {
-  color: var(--foreground);
+  color: #171717;
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+  /* Fade the chart in on first mount so the transition from the
+     date-setup form feels intentional rather than abrupt. */
+  .chart-fade-in {
+    animation: chartFadeIn 380ms ease-out;
+  }
+  @keyframes chartFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+[contenteditable=true]:empty:before {
+  content: attr(placeholder);
+  pointer-events: none;
+  display: block; /* For Firefox */
 }

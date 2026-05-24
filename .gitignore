@@ -34,3 +34,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+# claude code per-user settings
+/.claude/settings.local.json
+
+# reference pdfs (kept locally, not in repo)
+/making-data-count-*.pdf
