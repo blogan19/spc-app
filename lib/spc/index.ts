@@ -41,6 +41,7 @@ export {
   deriveIcons,
   deriveVariationIcon,
   deriveAssuranceIcon,
+  describeVariation,
 } from './icons';
 export type { IconSummary, VariationIcon, AssuranceIcon } from './icons';
 export { describePlottedRows } from './descriptive';

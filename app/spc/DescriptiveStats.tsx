@@ -4,7 +4,7 @@
 // an "See all stats" button that opens an off-canvas drawer.
 
 import { useEffect, useMemo, useState } from 'react';
-import { analyseSpc, describePlottedRows } from '@/lib/spc';
+import { analyseSpc, describePlottedRows, describeVariation } from '@/lib/spc';
 import type { DescriptiveStat } from '@/lib/spc';
 import type { Measure } from '@/lib/project/types';
 
@@ -24,7 +24,7 @@ const HEADLINE_KEYS = [
 export default function DescriptiveStats({ measure }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const result = useMemo(() => {
+  const { stats: result, narrative } = useMemo(() => {
     const kind = (['RunChart', 'P', 'C', 'U'] as const).includes(
       measure.chartKind as 'RunChart' | 'P' | 'C' | 'U',
     )
@@ -43,8 +43,11 @@ export default function DescriptiveStats({ measure }: Props) {
       }))
       .filter((r) => Number.isFinite(r.value));
     const { analysis, plottedRows } = analyseSpc(sourceRows, { kind });
-    return describePlottedRows(plottedRows, analysis);
-  }, [measure.chartKind, measure.data]);
+    return {
+      stats: describePlottedRows(plottedRows, analysis),
+      narrative: describeVariation(plottedRows, analysis, measure.aim),
+    };
+  }, [measure.chartKind, measure.data, measure.aim]);
 
   const isCategorical =
     measure.chartKind === 'Pareto' || measure.chartKind === 'Funnel';
@@ -71,28 +74,35 @@ export default function DescriptiveStats({ measure }: Props) {
             </button>
           )}
         </header>
-        <div className="p-3">
+        <div className="p-3 space-y-3">
           {!result.ok ? (
             <p className="text-sm text-gray-500">
               Add some data and the summary will appear here.
             </p>
           ) : (
-            <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-              {headline.map((s) => (
-                <li
-                  key={s.key}
-                  className="rounded border border-gray-100 bg-gray-50 px-3 py-2"
-                  title={s.explanation}
-                >
-                  <div className="text-[10px] uppercase tracking-wide text-gray-500">
-                    {s.label}
-                  </div>
-                  <div className="text-base font-semibold text-gray-900 tabular-nums">
-                    {s.value}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              {narrative && (
+                <p className="text-sm leading-relaxed text-gray-700 bg-gray-50 border border-gray-100 rounded p-3">
+                  {narrative}
+                </p>
+              )}
+              <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {headline.map((s) => (
+                  <li
+                    key={s.key}
+                    className="rounded border border-gray-100 bg-gray-50 px-3 py-2"
+                    title={s.explanation}
+                  >
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                      {s.label}
+                    </div>
+                    <div className="text-base font-semibold text-gray-900 tabular-nums">
+                      {s.value}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
       </section>

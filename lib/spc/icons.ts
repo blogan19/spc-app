@@ -127,3 +127,86 @@ export function deriveIcons(
     assurance: deriveAssuranceIcon(analysis, aim, target),
   };
 }
+
+// Plain-English narrative of the variation state, intended for the Quick
+// Stats panel under the chart. Leads with the concrete rule reason (e.g.
+// "8 consecutive points above the centre line") so the reader can see
+// *why* the variation icon is what it is, then ties it back to the
+// user's aim where one is set.
+export function describeVariation(
+  rows: readonly SpcRow[],
+  analysis: SpcAnalysis,
+  aim: IconAim,
+): string {
+  if (rows.length === 0) return '';
+  const variation = deriveVariationIcon(rows, analysis, aim);
+  const r = analysis.rules;
+
+  // Build a list of *specific* reasons, using actual counts and run
+  // lengths rather than the generic "7+" / "6+" thresholds.
+  const reasons: string[] = [];
+  if (r.outsideLimits.length > 0) {
+    reasons.push(
+      `${r.outsideLimits.length} point${r.outsideLimits.length === 1 ? '' : 's'} outside the control limits`,
+    );
+  }
+  if (r.runAboveBelowMean.length > 0) {
+    const n = longestConsecutiveRun(r.runAboveBelowMean);
+    reasons.push(`${n} consecutive points on the same side of the centre line`);
+  }
+  if (r.increasingRun.length > 0) {
+    const n = longestConsecutiveRun(r.increasingRun);
+    reasons.push(`${n} consecutive rising points`);
+  }
+  if (r.decreasingRun.length > 0) {
+    const n = longestConsecutiveRun(r.decreasingRun);
+    reasons.push(`${n} consecutive falling points`);
+  }
+  if (r.twoOfThreeOuterThird.length > 0) {
+    reasons.push('2 of 3 consecutive points in the outer third on the same side');
+  }
+  const joined = capitaliseFirst(joinList(reasons));
+  const aimVerb = aim === 'increase' ? 'increase' : aim === 'decrease' ? 'decrease' : null;
+
+  if (variation === 'common-cause') {
+    return 'Common-cause variation: no statistical rule has fired. The ups and downs are within statistical expectation — natural process noise, not a real change. No action is needed beyond ongoing monitoring.';
+  }
+  if (variation === 'special-cause') {
+    return `${joined}. No aim is set, so the direction is not editorialised — investigate the highlighted points to understand what changed.`;
+  }
+  if (variation === 'improvement') {
+    return `${joined}. This is an improvement signal because your aim is to ${aimVerb} this measure and the process has moved in that direction. Investigate what changed so you can lock the gain in.`;
+  }
+  return `${joined}. This is a concerning signal because your aim is to ${aimVerb} this measure but the process has moved against it. Investigate the highlighted points to understand what changed.`;
+}
+
+// Longest stretch of consecutive integers inside a sorted index list.
+// rules.ts flags every point that participates in a triggered pattern,
+// so a 9-point run shows up as 9 consecutive indices — that's the run
+// length we want to surface.
+function longestConsecutiveRun(indices: readonly number[]): number {
+  if (indices.length === 0) return 0;
+  let longest = 1;
+  let current = 1;
+  for (let i = 1; i < indices.length; i++) {
+    if (indices[i] === indices[i - 1] + 1) {
+      current++;
+      if (current > longest) longest = current;
+    } else {
+      current = 1;
+    }
+  }
+  return longest;
+}
+
+function joinList(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+function capitaliseFirst(s: string): string {
+  if (s.length === 0) return s;
+  return s[0].toUpperCase() + s.slice(1);
+}
