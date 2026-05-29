@@ -49,15 +49,7 @@ import {
   suggestTitleFromFilename,
   type IncrementSuggestion,
 } from '@/lib/project/suggest';
-import {
-  MEASURE_TEMPLATES,
-  TEMPLATE_CATEGORY_ORDER,
-  type MeasureTemplate,
-  type TemplateCategory,
-} from '@/lib/project/templates';
 import type {
-  AimDirection,
-  ChartKind,
   ChartSettings,
   Increment,
   MeasureRow,
@@ -68,17 +60,13 @@ export interface SetupSubmit {
   increment: Increment;
   name: string;
   settings: Pick<ChartSettings, 'title' | 'description' | 'xAxisLabel' | 'yAxisLabel'>;
-  /** Optional chart-type override — set when a template was used. */
-  chartKind?: ChartKind;
-  /** Optional aim override — set when a template was used. */
-  aim?: AimDirection;
 }
 
 interface Props {
   onApply: (submit: SetupSubmit) => void;
 }
 
-type Mode = 'empty' | 'upload' | 'template';
+type Mode = 'empty' | 'upload';
 
 const ACCEPTED_EXT = ['csv', 'xlsx'] as const;
 const ACCEPT_ATTR =
@@ -113,11 +101,6 @@ export default function DateSetupForm({ onApply }: Props) {
   const [yAxisLabel, setYAxisLabel] = useState('');
   const [increment, setIncrement] = useState<Increment>('monthly');
 
-  // Template-path-only state. When a template is picked we also stash
-  // its chartKind and aim so they can be applied via setMeasureSetup
-  // when the user finishes the wizard.
-  const [pickedTemplate, setPickedTemplate] = useState<MeasureTemplate | null>(null);
-
   // Upload-path-only state.
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
@@ -140,24 +123,11 @@ export default function DateSetupForm({ onApply }: Props) {
   const touchY = () => setTouched((t) => ({ ...t, yAxisLabel: true }));
   const touchInc = () => setTouched((t) => ({ ...t, increment: true }));
 
-  const totalSteps =
-    mode === 'empty' ? 2 : mode === 'upload' ? 3 : mode === 'template' ? 3 : 0;
+  const totalSteps = mode === 'empty' ? 2 : mode === 'upload' ? 3 : 0;
 
   const pickMode = (m: Mode) => {
     setMode(m);
     setStep(1);
-  };
-
-  const pickTemplate = (template: MeasureTemplate) => {
-    setPickedTemplate(template);
-    // Overwrite every detail field — the user wants the template's
-    // values. They can still edit on the next step before continuing.
-    setTitle(template.name);
-    setDescription(template.description);
-    setXAxisLabel(template.xAxisLabel);
-    setYAxisLabel(template.yAxisLabel);
-    setIncrement(template.defaultIncrement);
-    setStep(2);
   };
 
   const back = () => {
@@ -304,13 +274,6 @@ export default function DateSetupForm({ onApply }: Props) {
         xAxisLabel: xAxisLabel.trim(),
         yAxisLabel: yAxisLabel.trim(),
       },
-      // Templates also dictate chart kind + aim so the user lands on a
-      // properly configured measure (e.g. a P chart with the right
-      // direction). When the user picked Empty/Upload these are
-      // undefined and the measure keeps its existing defaults.
-      ...(pickedTemplate
-        ? { chartKind: pickedTemplate.chartKind, aim: pickedTemplate.aim }
-        : {}),
     });
   };
 
@@ -425,46 +388,6 @@ export default function DateSetupForm({ onApply }: Props) {
         onCreate={() => apply(finalRows)}
       />
     );
-  } else if (mode === 'template' && step === 1) {
-    body = <TemplatePickerStep onPick={pickTemplate} onBack={back} />;
-  } else if (mode === 'template' && step === 2) {
-    body = (
-      <DetailsStep
-        title={title}
-        setTitle={(v) => {
-          touchTitle();
-          setTitle(v);
-        }}
-        description={description}
-        setDescription={setDescription}
-        xAxisLabel={xAxisLabel}
-        setXAxisLabel={(v) => {
-          touchX();
-          setXAxisLabel(v);
-        }}
-        yAxisLabel={yAxisLabel}
-        setYAxisLabel={(v) => {
-          touchY();
-          setYAxisLabel(v);
-        }}
-        canContinue={titleValid}
-        onBack={back}
-        onContinue={() => setStep(3)}
-        templateInfo={pickedTemplate}
-      />
-    );
-  } else if (mode === 'template' && step === 3) {
-    body = (
-      <EmptyRangeStep
-        increment={increment}
-        setIncrement={(v) => {
-          touchInc();
-          setIncrement(v);
-        }}
-        onBack={back}
-        onCreate={(rows) => apply(rows)}
-      />
-    );
   }
 
   return (
@@ -533,15 +456,9 @@ export default function DateSetupForm({ onApply }: Props) {
 function stepLabel(mode: Mode | null, step: number): string {
   if (!mode) return '';
   if (mode === 'empty') return step === 1 ? 'chart details' : 'cadence and date range';
-  if (mode === 'upload') {
-    if (step === 1) return 'upload spreadsheet';
-    if (step === 2) return 'review details';
-    return 'aggregation plan';
-  }
-  // template
-  if (step === 1) return 'pick a template';
+  if (step === 1) return 'upload spreadsheet';
   if (step === 2) return 'review details';
-  return 'cadence and date range';
+  return 'aggregation plan';
 }
 
 function StepDots({ total, current }: { total: number; current: number }) {
@@ -567,15 +484,9 @@ function ModeStep({ onPick }: { onPick: (m: Mode) => void }) {
     <div>
       <h3 className="text-base font-medium text-gray-900">How would you like to start?</h3>
       <p className="text-sm text-gray-600 mt-1">
-        Start from a template, build from scratch, or load existing data.
+        Build from scratch or load existing data.
       </p>
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ModeCard
-          onClick={() => onPick('template')}
-          title="From a template"
-          hint="Pre-built measures for the typical QI metrics — falls, DNA, length of stay…"
-          accent
-        />
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ModeCard
           onClick={() => onPick('empty')}
           title="Empty chart"
@@ -595,22 +506,16 @@ function ModeCard({
   onClick,
   title,
   hint,
-  accent,
 }: {
   onClick: () => void;
   title: string;
   hint: string;
-  accent?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`text-left border-2 rounded-lg p-5 transition-colors group ${
-        accent
-          ? 'border-blue-300 bg-blue-50/30 hover:border-blue-500'
-          : 'border-gray-200 hover:border-blue-500'
-      }`}
+      className="text-left border-2 rounded-lg p-5 transition-colors group border-gray-200 hover:border-blue-500"
     >
       <div className="flex items-center justify-between">
         <span className="text-base font-semibold text-gray-900 group-hover:text-blue-700">
@@ -637,7 +542,6 @@ function DetailsStep({
   canContinue,
   onBack,
   onContinue,
-  templateInfo,
 }: {
   title: string;
   setTitle: (v: string) => void;
@@ -650,32 +554,13 @@ function DetailsStep({
   canContinue: boolean;
   onBack: () => void;
   onContinue: () => void;
-  templateInfo?: MeasureTemplate | null;
 }) {
   return (
     <div>
       <h3 className="text-base font-medium text-gray-900">Chart details</h3>
       <p className="text-sm text-gray-600 mt-1">
-        {templateInfo
-          ? <>Pre-filled from the <strong>{templateInfo.name}</strong> template — edit any field below.</>
-          : 'Give your chart a name and label its axes.'}
+        Give your chart a name and label its axes.
       </p>
-      {templateInfo && (
-        <div className="mt-3 inline-flex flex-wrap items-center gap-2 text-xs rounded border border-blue-200 bg-blue-50 px-3 py-1.5">
-          <span className="font-medium text-blue-900">Template:</span>
-          <span className="text-blue-900">{templateInfo.name}</span>
-          <span className="text-blue-700">·</span>
-          <span className="text-blue-900">{templateInfo.chartKind} chart</span>
-          <span className="text-blue-700">·</span>
-          <span className="text-blue-900">aim: {templateInfo.aim}</span>
-          {templateInfo.denominatorLabel && (
-            <>
-              <span className="text-blue-700">·</span>
-              <span className="text-blue-900">denominator: {templateInfo.denominatorLabel}</span>
-            </>
-          )}
-        </div>
-      )}
       <DetailsFields
         title={title}
         setTitle={setTitle}
@@ -693,80 +578,6 @@ function DetailsStep({
         primaryDisabledHint={canContinue ? undefined : 'A title is required.'}
         onPrimary={onContinue}
       />
-    </div>
-  );
-}
-
-// --- Step 1 (template): pick a template ----------------------------------
-
-function TemplatePickerStep({
-  onPick,
-  onBack,
-}: {
-  onPick: (t: MeasureTemplate) => void;
-  onBack: () => void;
-}) {
-  const grouped = useMemo(() => {
-    const byCategory = new Map<TemplateCategory, MeasureTemplate[]>();
-    for (const t of MEASURE_TEMPLATES) {
-      const arr = byCategory.get(t.category) ?? [];
-      arr.push(t);
-      byCategory.set(t.category, arr);
-    }
-    return TEMPLATE_CATEGORY_ORDER
-      .filter((c) => byCategory.has(c))
-      .map((c) => ({ category: c, templates: byCategory.get(c)! }));
-  }, []);
-
-  return (
-    <div>
-      <h3 className="text-base font-medium text-gray-900">Pick a template</h3>
-      <p className="text-sm text-gray-600 mt-1">
-        Each template sets the right chart type, aim direction, axis labels
-        and suggested cadence. Pick one to get started — you can still edit
-        everything before creating the chart.
-      </p>
-      <div className="mt-5 space-y-5">
-        {grouped.map(({ category, templates }) => (
-          <section key={category}>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-              {category}
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {templates.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => onPick(t)}
-                  className="text-left border border-gray-200 hover:border-blue-500 hover:bg-blue-50 rounded p-3 transition-colors group"
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-gray-900 group-hover:text-blue-700">
-                      {t.name}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-500 whitespace-nowrap">
-                      {t.chartKind} · {t.defaultIncrement} · {t.aim}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-600 leading-snug">
-                    {t.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-      <div className="mt-6 flex items-center justify-start pt-4 border-t border-gray-100">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md px-3 py-1.5 transition-colors"
-        >
-          <span aria-hidden>←</span>
-          Back
-        </button>
-      </div>
     </div>
   );
 }

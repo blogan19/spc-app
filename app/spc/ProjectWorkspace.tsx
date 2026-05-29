@@ -431,13 +431,11 @@ function MeasuresPane({
           onUpdateMeasureMeta={(patch) =>
             setProject(updateMeasureMeta(project, activeMeasure.id, patch))
           }
-          onSetupMeasure={({ rows, increment, name, settings, chartKind, aim }) =>
+          onSetupMeasure={({ rows, increment, name, settings }) =>
             setProject(
               setMeasureSetup(project, activeMeasure.id, rows, increment, {
                 name,
                 settings,
-                chartKind,
-                aim,
               }),
             )
           }

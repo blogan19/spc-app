@@ -15,7 +15,7 @@ The vitest config lives at `vitest.config.mts` (the `.mts` extension is required
 
 ## Project intent
 
-SPC (Statistical Process Control) / quality-improvement web app aimed at non-statisticians in healthcare and operational improvement, following NHS "Making Data Count" guidance. The vision is captured in `spc_app_build_plan-1.md` and `spc_app_build_plan-2.md`. Most of the v2 plan is now implemented (XmR, Run, P/C/U, Pareto, Funnel charts; sub-process splits; aim statements; drivers; PDSA cycles; cause-and-effect; process maps; incident analysis; lagged correlation; narrative theme clustering; driver-linked auto-annotation). Geographic clustering and Phase 6 (collaboration / exports / templates) are still open.
+SPC (Statistical Process Control) / quality-improvement web app aimed at non-statisticians in healthcare and operational improvement, following NHS "Making Data Count" guidance. The vision is captured in `spc_app_build_plan-1.md` and `spc_app_build_plan-2.md`. Most of the v2 plan is now implemented (XmR, Run, P/C/U, Pareto, Funnel charts; sub-process splits; aim statements; drivers; PDSA cycles; cause-and-effect; process maps; incident analysis; lagged correlation; narrative theme clustering; driver-linked auto-annotation). Geographic clustering and Phase 6 (collaboration / exports) are still open.
 
 ## Architecture
 

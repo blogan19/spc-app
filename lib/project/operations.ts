@@ -492,8 +492,6 @@ export function setMeasureSetup(
   meta?: {
     name?: string;
     settings?: Partial<ChartSettings>;
-    chartKind?: Measure['chartKind'];
-    aim?: Measure['aim'];
   },
 ): Project {
   return mapMeasure(project, measureId, (m) => ({
@@ -501,8 +499,6 @@ export function setMeasureSetup(
     data: rows,
     increment,
     ...(meta?.name ? { name: meta.name } : {}),
-    ...(meta?.chartKind ? { chartKind: meta.chartKind } : {}),
-    ...(meta?.aim ? { aim: meta.aim } : {}),
     settings: meta?.settings ? { ...m.settings, ...meta.settings } : m.settings,
   }));
 }

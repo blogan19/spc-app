@@ -51,7 +51,7 @@ See [`CLAUDE.md`](./CLAUDE.md) for a longer architectural tour and [`spc_app_bui
 
 ## Status
 
-Most of the v2 plan is implemented. Still open: geographic clustering, and Phase 6 (collaboration / exports / templates).
+Most of the v2 plan is implemented. Still open: geographic clustering, and Phase 6 (collaboration / exports).
 
 ## License
 
