@@ -20,6 +20,7 @@ import type {
   RecalcJustification,
 } from './types';
 import { emptyMeasure } from './seed';
+import { isSplitAllowedFor } from './split';
 
 let counter = 0;
 function newId(prefix: string): string {
@@ -459,7 +460,16 @@ export function updateMeasureMeta(
     Pick<Measure, 'name' | 'type' | 'chartKind' | 'aim' | 'target' | 'splitBy' | 'increment'>
   >,
 ): Project {
-  return mapMeasure(project, measureId, (m) => ({ ...m, ...patch }));
+  return mapMeasure(project, measureId, (m) => {
+    const next = { ...m, ...patch };
+    // If the new increment can't host the current splitBy (e.g. switching
+    // from daily to monthly while split-by=weekdayWeekend), snap splitBy
+    // back to 'none' so the chart doesn't render a nonsense stratification.
+    if (patch.increment !== undefined && !isSplitAllowedFor(next.splitBy, next.increment)) {
+      next.splitBy = 'none';
+    }
+    return next;
+  });
 }
 
 export function updateMeasureSettings(
@@ -483,7 +493,9 @@ export function setMeasureRows(
 
 // Initial date-setup commit: rows and the increment land together so
 // later renders never see rows without the increment that produced them
-// (the chart axis formatter needs both).
+// (the chart axis formatter needs both). chartKind/aim/target/splitBy
+// also flow in so the user lands on the workspace with the picks they
+// made in the wizard already applied.
 export function setMeasureSetup(
   project: Project,
   measureId: string,
@@ -492,6 +504,10 @@ export function setMeasureSetup(
   meta?: {
     name?: string;
     settings?: Partial<ChartSettings>;
+    chartKind?: Measure['chartKind'];
+    aim?: Measure['aim'];
+    target?: Measure['target'];
+    splitBy?: Measure['splitBy'];
   },
 ): Project {
   return mapMeasure(project, measureId, (m) => ({
@@ -499,6 +515,10 @@ export function setMeasureSetup(
     data: rows,
     increment,
     ...(meta?.name ? { name: meta.name } : {}),
+    ...(meta?.chartKind ? { chartKind: meta.chartKind } : {}),
+    ...(meta?.aim ? { aim: meta.aim } : {}),
+    ...(meta?.target !== undefined ? { target: meta.target } : {}),
+    ...(meta?.splitBy ? { splitBy: meta.splitBy } : {}),
     settings: meta?.settings ? { ...m.settings, ...meta.settings } : m.settings,
   }));
 }

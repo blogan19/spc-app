@@ -74,11 +74,15 @@ export default function Home() {
           onUpdateMeasureMeta={(patch) =>
             setProject(updateMeasureMeta(project, measure.id, patch))
           }
-          onSetupMeasure={({ rows, increment, name, settings }) =>
+          onSetupMeasure={({ rows, increment, name, settings, chartKind, aim, target, splitBy }) =>
             setProject(
               setMeasureSetup(project, measure.id, rows, increment, {
                 name,
                 settings,
+                chartKind,
+                aim,
+                target,
+                splitBy,
               }),
             )
           }

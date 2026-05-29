@@ -3,7 +3,7 @@
 // alternative to rolling averages (Strengthening Your Decisions, §"Dealing
 // with data relating to more than one process").
 
-import type { MeasureRow, SplitKind } from './types';
+import type { Increment, MeasureRow, SplitKind } from './types';
 export type { SplitKind };
 
 export interface SplitOption {
@@ -30,6 +30,27 @@ export const splitOptions: SplitOption[] = [
     description: 'Up to 12 charts. Surfaces seasonal effects.',
   },
 ];
+
+// Which split kinds are meaningful for a given cadence. Day-based splits
+// (dayOfWeek, weekdayWeekend) only make sense on daily data — anything
+// coarser hides the underlying weekday. Month-of-year works on daily,
+// weekly and monthly data (cross-year seasonality), but not yearly.
+// When the increment isn't known yet, allow everything — the user picks
+// the increment first in every flow that uses this.
+export function allowedSplitOptions(increment: Increment | undefined): SplitOption[] {
+  if (!increment || increment === 'daily') return splitOptions;
+  if (increment === 'weekly' || increment === 'monthly') {
+    return splitOptions.filter((o) => o.kind === 'none' || o.kind === 'month');
+  }
+  return splitOptions.filter((o) => o.kind === 'none');
+}
+
+export function isSplitAllowedFor(
+  splitBy: SplitKind,
+  increment: Increment | undefined,
+): boolean {
+  return allowedSplitOptions(increment).some((o) => o.kind === splitBy);
+}
 
 export interface SplitStratum {
   label: string;

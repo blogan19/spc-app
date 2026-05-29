@@ -14,7 +14,7 @@ import DateSetupForm, { type SetupSubmit } from './DateSetupForm';
 import DescriptiveStats from './DescriptiveStats';
 import GoalsStrip from './GoalsStrip';
 import { downloadMeasureCsv } from '@/lib/project/exportCsv';
-import { splitOptions, splitRows } from '@/lib/project/split';
+import { allowedSplitOptions, splitRows } from '@/lib/project/split';
 import type {
   AimDirection,
   ChartKind,
@@ -206,7 +206,7 @@ function Controls({
               className="border border-gray-300 rounded px-1 py-0.5"
               title="Render the data as one chart per stratum — the MDC alternative to rolling averages."
             >
-              {splitOptions.map((opt) => (
+              {allowedSplitOptions(measure.increment).map((opt) => (
                 <option key={opt.kind} value={opt.kind}>
                   {opt.label}
                 </option>

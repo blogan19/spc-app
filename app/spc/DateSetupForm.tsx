@@ -50,15 +50,23 @@ import {
   type IncrementSuggestion,
 } from '@/lib/project/suggest';
 import type {
+  AimDirection,
+  ChartKind,
   ChartSettings,
   Increment,
   MeasureRow,
+  SplitKind,
 } from '@/lib/project/types';
+import { allowedSplitOptions } from '@/lib/project/split';
 
 export interface SetupSubmit {
   rows: MeasureRow[];
   increment: Increment;
   name: string;
+  chartKind: ChartKind;
+  aim: AimDirection;
+  target?: number;
+  splitBy: SplitKind;
   settings: Pick<ChartSettings, 'title' | 'description' | 'xAxisLabel' | 'yAxisLabel'>;
 }
 
@@ -101,6 +109,25 @@ export default function DateSetupForm({ onApply }: Props) {
   const [yAxisLabel, setYAxisLabel] = useState('');
   const [increment, setIncrement] = useState<Increment>('monthly');
 
+  // Chart-settings step state. Picked at the end of both flows so the
+  // user lands on the workspace with chart kind, aim, target and split
+  // already configured instead of having to find the controls afterwards.
+  const [chartKind, setChartKind] = useState<ChartKind>('XmR');
+  const [aim, setAim] = useState<AimDirection>('increase');
+  const [targetText, setTargetText] = useState<string>('');
+  const [splitBy, setSplitBy] = useState<SplitKind>('none');
+
+  // Generated rows from the empty path — held at the parent so the final
+  // step can submit them. (Upload path uses finalRows, computed below.)
+  const [pendingEmptyRows, setPendingEmptyRows] = useState<MeasureRow[]>([]);
+
+  // If the user changes increment after picking a now-incompatible split,
+  // snap splitBy back to 'none' so the wizard stays internally consistent.
+  useEffect(() => {
+    const allowed = allowedSplitOptions(increment).map((o) => o.kind);
+    if (!allowed.includes(splitBy)) setSplitBy('none');
+  }, [increment, splitBy]);
+
   // Upload-path-only state.
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
@@ -123,7 +150,7 @@ export default function DateSetupForm({ onApply }: Props) {
   const touchY = () => setTouched((t) => ({ ...t, yAxisLabel: true }));
   const touchInc = () => setTouched((t) => ({ ...t, increment: true }));
 
-  const totalSteps = mode === 'empty' ? 2 : mode === 'upload' ? 3 : 0;
+  const totalSteps = mode === 'empty' ? 3 : mode === 'upload' ? 4 : 0;
 
   const pickMode = (m: Mode) => {
     setMode(m);
@@ -264,10 +291,16 @@ export default function DateSetupForm({ onApply }: Props) {
   const titleValid = titleTrim.length > 0;
 
   const apply = (rows: MeasureRow[]) => {
+    const targetTrim = targetText.trim();
+    const targetNum = targetTrim === '' ? undefined : Number(targetTrim);
     onApply({
       rows,
       increment,
       name: titleTrim,
+      chartKind,
+      aim,
+      target: typeof targetNum === 'number' && Number.isFinite(targetNum) ? targetNum : undefined,
+      splitBy,
       settings: {
         title: titleTrim,
         description: description.trim(),
@@ -315,7 +348,27 @@ export default function DateSetupForm({ onApply }: Props) {
           setIncrement(v);
         }}
         onBack={back}
-        onCreate={(rows) => apply(rows)}
+        onContinue={(rows) => {
+          setPendingEmptyRows(rows);
+          setStep(3);
+        }}
+      />
+    );
+  } else if (mode === 'empty' && step === 3) {
+    body = (
+      <ChartSettingsStep
+        chartKind={chartKind}
+        setChartKind={setChartKind}
+        aim={aim}
+        setAim={setAim}
+        targetText={targetText}
+        setTargetText={setTargetText}
+        splitBy={splitBy}
+        setSplitBy={setSplitBy}
+        increment={increment}
+        onBack={back}
+        onCreate={() => apply(pendingEmptyRows)}
+        canCreate={pendingEmptyRows.length > 0}
       />
     );
   } else if (mode === 'upload' && step === 1) {
@@ -383,9 +436,26 @@ export default function DateSetupForm({ onApply }: Props) {
         finalRowCount={finalRows.length}
         rawRows={rawRows}
         effectiveAggregator={effectiveAggregator}
-        canCreate={titleValid && finalRows.length > 0}
+        canContinue={titleValid && finalRows.length > 0}
+        onBack={back}
+        onContinue={() => setStep(4)}
+      />
+    );
+  } else if (mode === 'upload' && step === 4) {
+    body = (
+      <ChartSettingsStep
+        chartKind={chartKind}
+        setChartKind={setChartKind}
+        aim={aim}
+        setAim={setAim}
+        targetText={targetText}
+        setTargetText={setTargetText}
+        splitBy={splitBy}
+        setSplitBy={setSplitBy}
+        increment={increment}
         onBack={back}
         onCreate={() => apply(finalRows)}
+        canCreate={titleValid && finalRows.length > 0}
       />
     );
   }
@@ -455,10 +525,15 @@ export default function DateSetupForm({ onApply }: Props) {
 
 function stepLabel(mode: Mode | null, step: number): string {
   if (!mode) return '';
-  if (mode === 'empty') return step === 1 ? 'chart details' : 'cadence and date range';
+  if (mode === 'empty') {
+    if (step === 1) return 'chart details';
+    if (step === 2) return 'cadence and date range';
+    return 'chart settings';
+  }
   if (step === 1) return 'upload spreadsheet';
   if (step === 2) return 'review details';
-  return 'aggregation plan';
+  if (step === 3) return 'aggregation plan';
+  return 'chart settings';
 }
 
 function StepDots({ total, current }: { total: number; current: number }) {
@@ -588,12 +663,12 @@ function EmptyRangeStep({
   increment,
   setIncrement,
   onBack,
-  onCreate,
+  onContinue,
 }: {
   increment: Increment;
   setIncrement: (v: Increment) => void;
   onBack: () => void;
-  onCreate: (rows: MeasureRow[]) => void;
+  onContinue: (rows: MeasureRow[]) => void;
 }) {
   const epoch = useMemo(() => addDays(todayISO(), -365 * 15), []);
   const horizon = useMemo(() => addDays(todayISO(), 365 * 5), []);
@@ -705,9 +780,9 @@ function EmptyRangeStep({
 
       <NavRow
         onBack={onBack}
-        primaryLabel="Create chart →"
+        primaryLabel="Continue →"
         primaryDisabled={!datesValid}
-        onPrimary={() => onCreate(rows)}
+        onPrimary={() => onContinue(rows)}
       />
     </div>
   );
@@ -1326,9 +1401,9 @@ function UploadPlanStep({
   finalRowCount,
   rawRows,
   effectiveAggregator,
-  canCreate,
+  canContinue,
   onBack,
-  onCreate,
+  onContinue,
 }: {
   stats: ReturnType<typeof aggregationStats>;
   increment: Increment;
@@ -1342,9 +1417,9 @@ function UploadPlanStep({
   finalRowCount: number;
   rawRows: MeasureRow[];
   effectiveAggregator: Aggregator;
-  canCreate: boolean;
+  canContinue: boolean;
   onBack: () => void;
-  onCreate: () => void;
+  onContinue: () => void;
 }) {
   const bucketLabel =
     increment === 'yearly' ? 'year'
@@ -1458,11 +1533,184 @@ function UploadPlanStep({
 
       <NavRow
         onBack={onBack}
-        primaryLabel="Create chart from data →"
+        primaryLabel="Continue →"
+        primaryDisabled={!canContinue}
+        onPrimary={onContinue}
+      />
+    </div>
+  );
+}
+
+// --- Chart-settings step (shared by both flows) --------------------------
+
+function ChartSettingsStep({
+  chartKind,
+  setChartKind,
+  aim,
+  setAim,
+  targetText,
+  setTargetText,
+  splitBy,
+  setSplitBy,
+  increment,
+  onBack,
+  onCreate,
+  canCreate,
+}: {
+  chartKind: ChartKind;
+  setChartKind: (v: ChartKind) => void;
+  aim: AimDirection;
+  setAim: (v: AimDirection) => void;
+  targetText: string;
+  setTargetText: (v: string) => void;
+  splitBy: SplitKind;
+  setSplitBy: (v: SplitKind) => void;
+  increment: Increment;
+  onBack: () => void;
+  onCreate: () => void;
+  canCreate: boolean;
+}) {
+  const splits = allowedSplitOptions(increment);
+  const showSplit = splits.length > 1;
+
+  return (
+    <div>
+      <h3 className="text-base font-medium text-gray-900">Chart settings</h3>
+      <p className="text-sm text-gray-600 mt-1">
+        Choose how the chart should treat your data. You can change all of
+        these later from the controls above the chart.
+      </p>
+
+      <div className="mt-5 space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Chart kind
+          </label>
+          <select
+            value={chartKind}
+            onChange={(e) => setChartKind(e.target.value as ChartKind)}
+            className="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+          >
+            <option value="XmR">XmR (control chart)</option>
+            <option value="RunChart">Run chart (median, no limits)</option>
+            <option value="P">P chart (proportions — needs a denominator)</option>
+            <option value="C">C chart (rare-event counts)</option>
+            <option value="U">U chart (rates per varying exposure)</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            XmR is the safe default for most continuous data. Switch later
+            if you need attribute-chart maths.
+          </p>
+        </div>
+
+        <div>
+          <span className="block text-sm font-medium text-gray-700">Aim</span>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Which direction means &ldquo;getting better&rdquo;? This drives the
+            variation icon and the colour of trend signals.
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <AimCard
+              checked={aim === 'increase'}
+              onChoose={() => setAim('increase')}
+              label="Increase"
+              hint="More is better"
+            />
+            <AimCard
+              checked={aim === 'decrease'}
+              onChoose={() => setAim('decrease')}
+              label="Decrease"
+              hint="Less is better"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Target <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="number"
+            value={targetText}
+            onChange={(e) => setTargetText(e.target.value)}
+            placeholder="e.g. 95"
+            className="mt-1 w-full sm:w-40 border border-gray-300 rounded px-2 py-1.5 text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Drives the assurance icon. Leave blank if there&rsquo;s no formal target.
+          </p>
+        </div>
+
+        {showSplit && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Split by
+            </label>
+            <select
+              value={splitBy}
+              onChange={(e) => setSplitBy(e.target.value as SplitKind)}
+              className="mt-1 w-full sm:w-72 border border-gray-300 rounded px-2 py-1.5 text-sm"
+            >
+              {splits.map((opt) => (
+                <option key={opt.kind} value={opt.kind}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Renders one chart per stratum — the MDC alternative to rolling
+              averages. Options here are filtered to those that make sense
+              for your <strong>{increment}</strong> cadence.
+            </p>
+          </div>
+        )}
+        {!showSplit && (
+          <div className="text-xs text-gray-500">
+            Sub-process splits aren&rsquo;t available for <strong>{increment}</strong>{' '}
+            data — there&rsquo;s no finer-grained pattern to surface.
+          </div>
+        )}
+      </div>
+
+      <NavRow
+        onBack={onBack}
+        primaryLabel="Create chart →"
         primaryDisabled={!canCreate}
         onPrimary={onCreate}
       />
     </div>
+  );
+}
+
+function AimCard({
+  checked,
+  onChoose,
+  label,
+  hint,
+}: {
+  checked: boolean;
+  onChoose: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <label
+      className={`flex items-start gap-2 rounded border px-3 py-2 cursor-pointer ${
+        checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+      }`}
+    >
+      <input
+        type="radio"
+        name="aim"
+        checked={checked}
+        onChange={onChoose}
+        className="mt-1"
+      />
+      <span className="flex flex-col text-sm">
+        <span className="font-medium text-gray-900">{label}</span>
+        <span className="text-xs text-gray-600">{hint}</span>
+      </span>
+    </label>
   );
 }
 
