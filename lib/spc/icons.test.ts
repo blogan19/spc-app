@@ -92,3 +92,36 @@ describe('assurance icon', () => {
     expect(deriveIcons(rows, analysis, 'decrease', 50).assurance).toBe('fail');
   });
 });
+
+describe("variation icon with aim='none'", () => {
+  it('returns common-cause when no rule fires', () => {
+    const rows = series([10, 11, 9, 10, 12, 9, 11, 10, 12, 11]);
+    const { analysis } = analyseSpc(rows);
+    expect(deriveIcons(rows, analysis, 'none').variation).toBe('common-cause');
+  });
+
+  it('returns special-cause when a trend rule fires (either direction)', () => {
+    const upward = series([1, 2, 3, 4, 5, 6, 7]);
+    const downward = series([100, 90, 80, 70, 60, 50]);
+    expect(deriveIcons(upward, analyseSpc(upward).analysis, 'none').variation).toBe(
+      'special-cause',
+    );
+    expect(
+      deriveIcons(downward, analyseSpc(downward).analysis, 'none').variation,
+    ).toBe('special-cause');
+  });
+
+  it('returns special-cause when a point lands outside the limits', () => {
+    const rows = series([10, 11, 9, 10, 12, 9, 11, 10, 12, 50]);
+    const { analysis } = analyseSpc(rows);
+    expect(deriveIcons(rows, analysis, 'none').variation).toBe('special-cause');
+  });
+
+  it("suppresses the assurance icon regardless of target", () => {
+    const rows = series([100, 101, 99, 100, 102, 99, 101, 100, 102, 99]);
+    const { analysis } = analyseSpc(rows);
+    expect(deriveIcons(rows, analysis, 'none', 50).assurance).toBeNull();
+    expect(deriveIcons(rows, analysis, 'none', 100).assurance).toBeNull();
+    expect(deriveIcons(rows, analysis, 'none', 200).assurance).toBeNull();
+  });
+});

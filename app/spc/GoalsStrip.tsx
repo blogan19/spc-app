@@ -50,6 +50,10 @@ export default function GoalsStrip({ measure }: Props) {
 function buildStrip(measure: Measure): Strip | null {
   if (measure.target === undefined || measure.target === null) return null;
   if (measure.chartKind === 'Pareto' || measure.chartKind === 'Funnel') return null;
+  // The strip's "distance to target" / "at current rate" reasoning all
+  // assumes a direction. Without an aim there's no favourable side, so
+  // hide the strip entirely.
+  if (measure.aim === 'none') return null;
 
   const sourceRows = measure.data
     .filter((d) => d?.date && d?.value !== '' && d?.value != null)

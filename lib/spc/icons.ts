@@ -9,22 +9,43 @@
 
 import type { SpcAnalysis, SpcRow } from './types';
 
-export type VariationIcon = 'concerning' | 'improvement' | 'common-cause';
+// 'special-cause' = a signal has fired but the user hasn't picked an aim,
+// so we can't editorialise as improvement-vs-concerning. The chart still
+// flags variation, just without the editorial spin.
+export type VariationIcon =
+  | 'concerning'
+  | 'improvement'
+  | 'common-cause'
+  | 'special-cause';
 export type AssuranceIcon = 'pass' | 'fail' | 'hit-miss';
 
 export interface IconSummary {
   variation: VariationIcon;
-  assurance: AssuranceIcon | null; // null when no target is set
+  assurance: AssuranceIcon | null; // null when no target is set or aim is 'none'
 }
+
+export type IconAim = 'increase' | 'decrease' | 'none';
 
 export function deriveVariationIcon(
   rows: readonly SpcRow[],
   analysis: SpcAnalysis,
-  aim: 'increase' | 'decrease',
+  aim: IconAim,
 ): VariationIcon {
+  const r = analysis.rules;
+
+  if (aim === 'none') {
+    // No directional editorialising — just check whether any rule fired.
+    const anySignal =
+      r.outsideLimits.length > 0 ||
+      r.runAboveBelowMean.length > 0 ||
+      r.twoOfThreeOuterThird.length > 0 ||
+      r.increasingRun.length > 0 ||
+      r.decreasingRun.length > 0;
+    return anySignal ? 'special-cause' : 'common-cause';
+  }
+
   type Signal = { index: number; direction: 'improvement' | 'concerning' };
   const signals: Signal[] = [];
-  const r = analysis.rules;
 
   const favourable = (above: boolean) =>
     (above && aim === 'increase') || (!above && aim === 'decrease');
@@ -69,9 +90,10 @@ export function deriveVariationIcon(
 
 export function deriveAssuranceIcon(
   analysis: SpcAnalysis,
-  aim: 'increase' | 'decrease',
+  aim: IconAim,
   target: number | undefined,
 ): AssuranceIcon | null {
+  if (aim === 'none') return null; // "meeting target" implies a direction
   if (target === undefined || target === null) return null;
   if (analysis.segments.length === 0) return null;
   // Run charts have no control limits, so "consistently meets/misses"
@@ -97,7 +119,7 @@ export function deriveAssuranceIcon(
 export function deriveIcons(
   rows: readonly SpcRow[],
   analysis: SpcAnalysis,
-  aim: 'increase' | 'decrease',
+  aim: IconAim,
   target?: number,
 ): IconSummary {
   return {

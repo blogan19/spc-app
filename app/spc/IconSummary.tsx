@@ -34,6 +34,13 @@ const variationDescriptors: Record<
     text: 'text-gray-700',
     symbol: '~',
   },
+  'special-cause': {
+    label: 'Special cause',
+    description: 'A rule has fired — no aim set, so direction is not editorialised',
+    bg: 'bg-yellow-100',
+    text: 'text-yellow-800',
+    symbol: '!',
+  },
 };
 
 const assuranceDescriptors: Record<

@@ -286,7 +286,9 @@ const LineChart = ({ params }) => {
 
     // Point colour interprets the rule hits against the user's aim.
     // A direction run in the aim direction is success (blue/green); anything
-    // else flagged by any rule is a concerning outlier.
+    // else flagged by any rule is a concerning outlier. When aim='none'
+    // there is no success direction, so every signal — including trend
+    // runs in either direction — is flagged as an outlier.
     const colourFor = (i) => {
       if (!outlierStatus) return defaultPointColor;
 
@@ -300,7 +302,8 @@ const LineChart = ({ params }) => {
         rules.runAboveBelowMean.includes(i) ||
         rules.twoOfThreeOuterThird.includes(i) ||
         (aim === 'increase' && rules.decreasingRun.includes(i)) ||
-        (aim === 'decrease' && rules.increasingRun.includes(i));
+        (aim === 'decrease' && rules.increasingRun.includes(i)) ||
+        (aim === 'none' && (rules.increasingRun.includes(i) || rules.decreasingRun.includes(i)));
       if (flaggedAsConcern) return outlierColor;
 
       return defaultPointColor;
@@ -673,6 +676,7 @@ const LineChart = ({ params }) => {
         improvement: { fill: '#dbeafe', text: '#1e40af', symbol: '↑', label: 'Improvement', desc: 'Special-cause variation in the desired direction' },
         concerning:  { fill: '#ffedd5', text: '#9a3412', symbol: '!', label: 'Concerning',  desc: 'Special-cause variation needing investigation' },
         'common-cause': { fill: '#f3f4f6', text: '#374151', symbol: '~', label: 'Common cause', desc: 'No special-cause variation — natural process noise' },
+        'special-cause': { fill: '#fef9c3', text: '#854d0e', symbol: '!', label: 'Special cause', desc: 'A rule has fired — no aim set, so direction is not editorialised' },
       };
       const assuranceStyles = {
         pass:       { fill: '#dbeafe', text: '#1e40af', symbol: '✓', label: 'Consistently meeting', desc: 'Target sits beyond the limits in the favourable direction' },

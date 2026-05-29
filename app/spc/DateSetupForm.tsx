@@ -1607,9 +1607,11 @@ function ChartSettingsStep({
           <span className="block text-sm font-medium text-gray-700">Aim</span>
           <p className="text-xs text-gray-500 mt-0.5">
             Which direction means &ldquo;getting better&rdquo;? This drives the
-            variation icon and the colour of trend signals.
+            variation icon and the colour of trend signals. Pick{' '}
+            <strong>None</strong> if you&rsquo;re just monitoring and don&rsquo;t
+            want to editorialise direction.
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
             <AimCard
               checked={aim === 'increase'}
               onChoose={() => setAim('increase')}
@@ -1621,6 +1623,12 @@ function ChartSettingsStep({
               onChoose={() => setAim('decrease')}
               label="Decrease"
               hint="Less is better"
+            />
+            <AimCard
+              checked={aim === 'none'}
+              onChoose={() => setAim('none')}
+              label="None"
+              hint="Just monitoring"
             />
           </div>
         </div>

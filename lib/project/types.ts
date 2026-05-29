@@ -5,7 +5,10 @@
 
 export type MeasureType = 'outcome' | 'process' | 'balancing';
 export type ChartKind = 'XmR' | 'P' | 'C' | 'U' | 'RunChart' | 'Pareto' | 'Funnel';
-export type AimDirection = 'increase' | 'decrease';
+// 'none' = the user is monitoring this measure but doesn't want to label
+// directionality. Trend signals stay neutral; the assurance icon is
+// suppressed because "consistently meeting target" implies a direction.
+export type AimDirection = 'increase' | 'decrease' | 'none';
 
 // Cadence of the time-series — drives the date-pre-population on a new
 // measure and the x-axis tick format. Set once in the date-setup form;

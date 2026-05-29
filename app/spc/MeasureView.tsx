@@ -220,9 +220,11 @@ function Controls({
               value={measure.aim}
               onChange={(e) => onUpdateMeta({ aim: e.target.value as AimDirection })}
               className="border border-gray-300 rounded px-1 py-0.5"
+              title="Sets which direction counts as improvement. Pick None to monitor without editorialising signals."
             >
               <option value="increase">Increase</option>
               <option value="decrease">Decrease</option>
+              <option value="none">None</option>
             </select>
           </label>
 
