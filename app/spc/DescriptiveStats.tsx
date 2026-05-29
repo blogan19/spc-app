@@ -108,7 +108,11 @@ export default function DescriptiveStats({ measure }: Props) {
       </section>
 
       {drawerOpen && (
-        <StatsDrawer onClose={() => setDrawerOpen(false)} stats={result.stats} />
+        <StatsDrawer
+          onClose={() => setDrawerOpen(false)}
+          stats={result.stats}
+          narrative={narrative}
+        />
       )}
     </>
   );
@@ -117,9 +121,11 @@ export default function DescriptiveStats({ measure }: Props) {
 function StatsDrawer({
   onClose,
   stats,
+  narrative,
 }: {
   onClose: () => void;
   stats: DescriptiveStat[];
+  narrative: string;
 }) {
   // Lock body scroll while the drawer is open so the page behind doesn't
   // wander when the user scrolls the drawer contents.
@@ -165,6 +171,11 @@ function StatsDrawer({
           </button>
         </header>
         <div className="overflow-y-auto p-5 space-y-3">
+          {narrative && (
+            <p className="text-sm leading-relaxed text-gray-700 bg-gray-50 border border-gray-200 rounded p-3">
+              {narrative}
+            </p>
+          )}
           {stats.map((s) => (
             <div key={s.key} className="border border-gray-100 rounded p-3">
               <div className="flex items-baseline justify-between gap-2">
