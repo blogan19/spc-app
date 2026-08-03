@@ -1,11 +1,9 @@
 'use client'
-// Composes the chart, icon summary, controls and editor for one measure.
+// Composes the chart, controls and editor for one SPC chart.
 // Supports sub-process split: when measure.splitBy is set, the chart
 // region renders one card per stratum instead of a single chart.
 
-import { useMemo } from 'react';
-import { collectIncidentEventsForMeasure } from '@/lib/project/incidents';
-import { collectPdsaBandsForMeasure, type PdsaBand } from '@/lib/project/pdsaBands';
+import { useMemo, useState } from 'react';
 import LineChart from './spc';
 import ParetoChart from './ParetoChart';
 import FunnelChart from './FunnelChart';
@@ -20,13 +18,11 @@ import type {
   ChartKind,
   Measure,
   MeasureRow,
-  Project,
   SplitKind,
 } from '@/lib/project/types';
 
 interface MeasureViewProps {
   measure: Measure;
-  project: Project;
   onUpdateRowField: (rowIndex: number, field: string, value: string) => void;
   onAddRow: (date: string) => void;
   onSetRecalculation: (
@@ -40,15 +36,11 @@ interface MeasureViewProps {
       Pick<Measure, 'name' | 'type' | 'aim' | 'target' | 'chartKind' | 'splitBy' | 'increment'>
     >,
   ) => void;
-  // Atomic first commit from the date-setup form: rows, increment, name
-  // and chart settings arrive together so the chart axis formatter always
-  // sees both rows and the increment that produced them.
   onSetupMeasure: (submit: SetupSubmit) => void;
 }
 
 export default function MeasureView({
   measure,
-  project,
   onUpdateRowField,
   onAddRow,
   onSetRecalculation,
@@ -57,18 +49,12 @@ export default function MeasureView({
   onUpdateMeasureMeta,
   onSetupMeasure,
 }: MeasureViewProps) {
+  const [showWizard, setShowWizard] = useState(false);
   const isPareto = measure.chartKind === 'Pareto';
   const isFunnel = measure.chartKind === 'Funnel';
   const isCategorical = isPareto || isFunnel;
   const needsSetup = !isCategorical && measure.data.length === 0;
-  const events = useMemo(
-    () => collectIncidentEventsForMeasure(project, measure.id),
-    [project, measure.id],
-  );
-  const pdsaBands = useMemo(
-    () => collectPdsaBandsForMeasure(project, measure.id),
-    [project, measure.id],
-  );
+
   const strata = useMemo(
     () =>
       isCategorical
@@ -79,20 +65,32 @@ export default function MeasureView({
   const isSplit =
     !isCategorical && measure.splitBy !== 'none' && strata.length > 1;
 
-  if (needsSetup) {
+  if (needsSetup || showWizard) {
     return (
       <div className="px-3 sm:px-6 py-6 sm:py-10">
-        <DateSetupForm onApply={onSetupMeasure} />
+        <DateSetupForm
+          onApply={(submit) => {
+            onSetupMeasure(submit);
+            setShowWizard(false);
+          }}
+          onCancel={showWizard ? () => setShowWizard(false) : undefined}
+          initialValues={showWizard ? {
+            name: measure.name,
+            description: measure.settings.description ?? '',
+            xAxisLabel: measure.settings.xAxisLabel ?? '',
+            yAxisLabel: measure.settings.yAxisLabel ?? '',
+            increment: measure.increment,
+            chartKind: measure.chartKind,
+            aim: measure.aim,
+            target: measure.target,
+            splitBy: measure.splitBy,
+          } : undefined}
+          initialRows={showWizard ? measure.data : undefined}
+        />
       </div>
     );
   }
 
-  // Chart clicks update row comments (inline annotations). We adapt the
-  // existing onUpdateRowField — the chart calls it with field='commentTitle'
-  // or 'commentText'. Pareto/Funnel cards skip this since their data
-  // shape isn't temporal. Sub-process splits also skip it because the
-  // row indices inside a stratum don't map cleanly back to the global
-  // measure.data array; users edit comments via the editor table instead.
   const isSplitForEdit =
     !isCategorical && measure.splitBy !== 'none' && strata.length > 1;
   const onUpdateRowFieldForChart =
@@ -107,6 +105,7 @@ export default function MeasureView({
             onUpdateMeta={onUpdateMeasureMeta}
             isSplit={isSplit}
             isCategorical={isCategorical}
+            onRedo={() => setShowWizard(true)}
           />
 
           {!isCategorical && <GoalsStrip measure={measure} />}
@@ -116,8 +115,6 @@ export default function MeasureView({
               label=""
               rows={strata[0]?.rows ?? []}
               measure={measure}
-              events={events}
-              pdsaBands={pdsaBands}
               onUpdateRowField={onUpdateRowFieldForChart}
               compact={false}
               showIcons
@@ -130,8 +127,6 @@ export default function MeasureView({
                   label={s.label}
                   rows={s.rows}
                   measure={measure}
-                  events={events}
-                  pdsaBands={pdsaBands}
                   onUpdateRowField={onUpdateRowFieldForChart}
                   compact
                   showIcons
@@ -170,14 +165,24 @@ function Controls({
   onUpdateMeta,
   isSplit,
   isCategorical,
+  onRedo,
 }: {
   measure: Measure;
   onUpdateMeta: MeasureViewProps['onUpdateMeasureMeta'];
   isSplit: boolean;
   isCategorical: boolean;
+  onRedo: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3 text-sm mb-4">
+    <div className="flex flex-wrap items-center gap-3 text-sm mb-4">
+      <button
+        type="button"
+        onClick={onRedo}
+        className="mr-auto text-xs text-gray-400 hover:text-indigo-600 transition-colors"
+        title="Re-run the setup wizard to change chart type, axis labels, cadence or date range"
+      >
+        ← Edit setup
+      </button>
       <label className="flex items-center gap-1">
         <span className="text-gray-600">Chart</span>
         <select
@@ -257,8 +262,6 @@ interface MeasureChartCardProps {
   label: string;
   rows: MeasureRow[];
   measure: Measure;
-  events?: Array<{ date: string; label: string }>;
-  pdsaBands?: PdsaBand[];
   onUpdateRowField?: (rowIndex: number, field: string, value: string) => void;
   compact: boolean;
   showIcons: boolean;
@@ -268,8 +271,6 @@ function MeasureChartCard({
   label,
   rows,
   measure,
-  events,
-  pdsaBands,
   onUpdateRowField,
   compact,
   showIcons,
@@ -284,12 +285,7 @@ function MeasureChartCard({
     target: measure.target,
     chartKind: measure.chartKind,
     increment: measure.increment,
-    events,
-    pdsaBands,
     onUpdateRowField,
-    // CSV export uses the whole measure (it walks measure.data for the
-    // raw rows, not the per-stratum slice). Only offered on the main
-    // single-strata card — sub-process splits use the editor table.
     onExportCsv: !compact ? () => downloadMeasureCsv(measure) : undefined,
     ...measure.settings,
     title: titleParts.join(' — '),
@@ -345,10 +341,6 @@ function SpcChartCard({
   showIcons: boolean;
   chartParams: ReturnType<typeof Object>;
 }) {
-  // The variation + assurance badges now live inside the chart SVG so
-  // they're captured by the PNG export. We no longer need to compute
-  // them here, but the prop signature is preserved (showIcons is still
-  // a hint, kept for future split-card hiding if we want it).
   void rows;
   void measure;
   void showIcons;

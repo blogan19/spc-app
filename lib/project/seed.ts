@@ -22,15 +22,15 @@ export const defaultChartSettings: ChartSettings = {
   xAxisLabel: '',
   yAxisLabel: '',
   axisLabelSize: 12,
-  lineColor: '#69b3a2',
-  lineWidth: 1, // SpcForm previously divided by 10; we now store the final stroke width directly
-  medianColor: 'red',
+  lineColor: '#6366f1',        // indigo-500 — clean, modern data line
+  lineWidth: 2,
+  medianColor: '#1e293b',      // slate-900 — dark authoritative mean line
   medianWidth: 2,
-  confColor: '#D4AF37',
-  confWidth: 2,
-  defaultPointColor: '#69b3a2',
-  successColor: 'green',
-  outlierColor: 'red',
+  confColor: '#94a3b8',        // slate-400 — subtle control limits
+  confWidth: 1.5,
+  defaultPointColor: '#6366f1', // indigo-500
+  successColor: '#10b981',     // emerald-500
+  outlierColor: '#ef4444',     // red-500
   outlierStatus: true,
   backgroundColor: '#ffffff',
   showMean: true,

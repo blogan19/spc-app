@@ -70,8 +70,23 @@ export interface SetupSubmit {
   settings: Pick<ChartSettings, 'title' | 'description' | 'xAxisLabel' | 'yAxisLabel'>;
 }
 
+export interface WizardInitialValues {
+  name: string;
+  description: string;
+  xAxisLabel: string;
+  yAxisLabel: string;
+  increment: Increment;
+  chartKind: ChartKind;
+  aim: AimDirection;
+  target?: number;
+  splitBy: SplitKind;
+}
+
 interface Props {
   onApply: (submit: SetupSubmit) => void;
+  onCancel?: () => void;
+  initialValues?: WizardInitialValues;
+  initialRows?: MeasureRow[];
 }
 
 type Mode = 'empty' | 'upload';
@@ -96,26 +111,24 @@ async function readSpreadsheetAsCsv(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheetName]);
 }
 
-export default function DateSetupForm({ onApply }: Props) {
-  // Step 0 = mode picker, with `mode` null. Once mode is set the user
-  // is on step 1 of the chosen path.
-  const [mode, setMode] = useState<Mode | null>(null);
-  const [step, setStep] = useState(0);
+export default function DateSetupForm({ onApply, onCancel, initialValues, initialRows }: Props) {
+  // In edit mode (initialValues provided) start straight on step 1 of
+  // the empty path; otherwise start on the mode-picker (step 0).
+  const [mode, setMode] = useState<Mode | null>(initialValues ? 'empty' : null);
+  const [step, setStep] = useState(initialValues ? 1 : 0);
 
-  // Shared form state (used by every path).
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [xAxisLabel, setXAxisLabel] = useState('');
-  const [yAxisLabel, setYAxisLabel] = useState('');
-  const [increment, setIncrement] = useState<Increment>('monthly');
+  // Shared form state — seeded from initialValues when editing.
+  const [title, setTitle] = useState(initialValues?.name ?? '');
+  const [description, setDescription] = useState(initialValues?.description ?? '');
+  const [xAxisLabel, setXAxisLabel] = useState(initialValues?.xAxisLabel ?? '');
+  const [yAxisLabel, setYAxisLabel] = useState(initialValues?.yAxisLabel ?? '');
+  const [increment, setIncrement] = useState<Increment>(initialValues?.increment ?? 'monthly');
 
-  // Chart-settings step state. Picked at the end of both flows so the
-  // user lands on the workspace with chart kind, aim, target and split
-  // already configured instead of having to find the controls afterwards.
-  const [chartKind, setChartKind] = useState<ChartKind>('XmR');
-  const [aim, setAim] = useState<AimDirection>('increase');
-  const [targetText, setTargetText] = useState<string>('');
-  const [splitBy, setSplitBy] = useState<SplitKind>('none');
+  // Chart-settings step state.
+  const [chartKind, setChartKind] = useState<ChartKind>(initialValues?.chartKind ?? 'XmR');
+  const [aim, setAim] = useState<AimDirection>(initialValues?.aim ?? 'increase');
+  const [targetText, setTargetText] = useState<string>(initialValues?.target?.toString() ?? '');
+  const [splitBy, setSplitBy] = useState<SplitKind>(initialValues?.splitBy ?? 'none');
 
   // Generated rows from the empty path — held at the parent so the final
   // step can submit them. (Upload path uses finalRows, computed below.)
@@ -153,37 +166,30 @@ export default function DateSetupForm({ onApply }: Props) {
   const totalSteps = mode === 'empty' ? 3 : mode === 'upload' ? 4 : 0;
 
   const pickMode = (m: Mode) => {
+    if (m === 'empty') {
+      setTitle('');
+      setDescription('');
+      setXAxisLabel('');
+      setYAxisLabel('');
+      setTouched({ title: false, xAxisLabel: false, yAxisLabel: false, increment: false });
+    }
     setMode(m);
     setStep(1);
   };
 
   const back = () => {
     if (step <= 1) {
-      // Going back from step 1 returns to the mode picker, keeping the
-      // user's typed values so they can flip to the other path without
-      // re-typing.
-      setMode(null);
-      setStep(0);
+      if (initialValues) {
+        // In edit mode, Back from step 1 exits the wizard.
+        onCancel?.();
+      } else {
+        setMode(null);
+        setStep(0);
+      }
     } else {
       setStep((s) => s - 1);
     }
   };
-
-  // Track which file we've already auto-advanced from so we don't push
-  // the user forward again after they manually go back to step 1.
-  const autoAdvancedFor = useRef<File | null>(null);
-  useEffect(() => {
-    if (
-      mode === 'upload' &&
-      step === 1 &&
-      parsed &&
-      file &&
-      autoAdvancedFor.current !== file
-    ) {
-      autoAdvancedFor.current = file;
-      setStep(2);
-    }
-  }, [mode, step, parsed, file]);
 
   // ---- file parse on upload path ---------------------------------------
   useEffect(() => {
@@ -287,6 +293,65 @@ export default function DateSetupForm({ onApply }: Props) {
     return aggregateRows(rawRows, increment, effectiveAggregator);
   }, [rawRows, increment, effectiveAggregator]);
 
+  // Auto-advance (or auto-apply) once a file has been parsed.
+  // Guard ref ensures we only fire once per file even if deps change later.
+  const autoAdvancedFor = useRef<File | null>(null);
+  useEffect(() => {
+    if (
+      mode !== 'upload' ||
+      step !== 1 ||
+      !parsed ||
+      !file ||
+      autoAdvancedFor.current === file
+    ) return;
+
+    autoAdvancedFor.current = file;
+
+    // Simple 2-column file (date + value) with no aggregation needed at
+    // the suggested increment → skip the wizard and apply directly.
+    const dateCol = mapping.date;
+    const valueCol = mapping.value;
+    const suggestedInc = incrementSuggestion?.suggested ?? increment;
+    const simpleStats =
+      rawRows.length > 0 ? aggregationStats(rawRows, suggestedInc) : null;
+    const needsAggregation = (simpleStats?.bucketsWithDuplicates ?? 0) > 0;
+
+    const canAutoApply =
+      parsed.headers.length === 2 &&
+      Boolean(dateCol) &&
+      Boolean(valueCol) &&
+      rawRows.length > 0 &&
+      !needsAggregation;
+
+    if (canAutoApply) {
+      const name =
+        title.trim() ||
+        suggestTitleFromFilename(file.name) ||
+        valueCol ||
+        'Chart';
+      onApply({
+        rows: rawRows,
+        increment: suggestedInc,
+        name,
+        chartKind,
+        aim,
+        target: undefined,
+        splitBy,
+        settings: {
+          title: name,
+          description: '',
+          xAxisLabel: dateCol ?? '',
+          yAxisLabel: valueCol ?? '',
+        },
+      });
+    } else {
+      setStep(2);
+    }
+  }, [
+    mode, step, parsed, file, mapping, rawRows, increment,
+    incrementSuggestion, chartKind, aim, splitBy, onApply, title,
+  ]);
+
   const titleTrim = title.trim();
   const titleValid = titleTrim.length > 0;
 
@@ -313,7 +378,15 @@ export default function DateSetupForm({ onApply }: Props) {
   // ---- step body picker -------------------------------------------------
   let body: React.ReactNode;
   if (step === 0 || mode === null) {
-    body = <ModeStep onPick={pickMode} />;
+    body = (
+      <ModeStep
+        onPick={pickMode}
+        onFileUpload={(f) => {
+          setFile(f);
+          pickMode('upload');
+        }}
+      />
+    );
   } else if (mode === 'empty' && step === 1) {
     body = (
       <DetailsStep
@@ -334,7 +407,7 @@ export default function DateSetupForm({ onApply }: Props) {
           touchY();
           setYAxisLabel(v);
         }}
-        canContinue={titleValid}
+        canContinue={titleValid && xAxisLabel.trim().length > 0 && yAxisLabel.trim().length > 0}
         onBack={back}
         onContinue={() => setStep(2)}
       />
@@ -347,6 +420,7 @@ export default function DateSetupForm({ onApply }: Props) {
           touchInc();
           setIncrement(v);
         }}
+        initialRows={initialRows}
         onBack={back}
         onContinue={(rows) => {
           setPendingEmptyRows(rows);
@@ -461,34 +535,48 @@ export default function DateSetupForm({ onApply }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-xl ring-1 ring-gray-200 p-5 sm:p-7 max-w-5xl mx-auto border-t-4 border-blue-500">
-      {step > 0 && (
-        <button
-          type="button"
-          onClick={back}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md px-3 py-1.5 transition-colors"
-        >
-          <span aria-hidden>←</span>
-          Back
-        </button>
-      )}
-      <header className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Create a new SPC chart
-          </h2>
-          {totalSteps > 0 && (
-            <p className="text-xs text-gray-500 mt-1">
-              Step {step} of {totalSteps}
-              {' — '}
-              {stepLabel(mode, step)}
-            </p>
+    <div className="bg-white rounded-xl shadow-xl ring-1 ring-indigo-100 max-w-5xl mx-auto overflow-hidden">
+      {/* Colourful gradient header */}
+      <div className="bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-600 px-5 sm:px-7 pt-5 pb-5">
+        <div className="flex items-center justify-between mb-3">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={back}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-100 hover:text-white bg-white/10 hover:bg-white/20 rounded-md px-3 py-1.5 transition-colors"
+            >
+              <span aria-hidden>←</span>
+              Back
+            </button>
+          ) : <span />}
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-100 hover:text-white bg-white/10 hover:bg-white/20 rounded-md px-3 py-1.5 transition-colors"
+            >
+              Back to chart
+            </button>
           )}
         </div>
-        {totalSteps > 0 && <StepDots total={totalSteps} current={step} />}
-      </header>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              Create a new SPC chart
+            </h2>
+            {totalSteps > 0 && (
+              <p className="text-xs text-indigo-200 mt-1">
+                Step {step} of {totalSteps}
+                {' — '}
+                {stepLabel(mode, step)}
+              </p>
+            )}
+          </div>
+          {totalSteps > 0 && <StepDots total={totalSteps} current={step} />}
+        </div>
+      </div>
 
-      <div className="mt-6">{body}</div>
+      <div className="p-5 sm:p-7">{body}</div>
 
       <style jsx>{`
         :global(.range-thumb-start::-webkit-slider-thumb),
@@ -499,7 +587,7 @@ export default function DateSetupForm({ onApply }: Props) {
           height: 18px;
           border-radius: 9999px;
           background: white;
-          border: 2px solid rgb(37 99 235);
+          border: 2px solid rgb(99 102 241);
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
           cursor: pointer;
         }
@@ -510,7 +598,7 @@ export default function DateSetupForm({ onApply }: Props) {
           height: 18px;
           border-radius: 9999px;
           background: white;
-          border: 2px solid rgb(37 99 235);
+          border: 2px solid rgb(99 102 241);
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
           cursor: pointer;
         }
@@ -543,7 +631,7 @@ function StepDots({ total, current }: { total: number; current: number }) {
         <span
           key={n}
           className={`h-2 w-6 rounded-full transition-colors ${
-            n <= current ? 'bg-blue-500' : 'bg-gray-200'
+            n <= current ? 'bg-white' : 'bg-white/30'
           }`}
           aria-hidden
         />
@@ -554,52 +642,80 @@ function StepDots({ total, current }: { total: number; current: number }) {
 
 // --- Step 0: pick mode ----------------------------------------------------
 
-function ModeStep({ onPick }: { onPick: (m: Mode) => void }) {
+function ModeStep({
+  onPick,
+  onFileUpload,
+}: {
+  onPick: (m: Mode) => void;
+  onFileUpload: (f: File) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+
   return (
-    <div>
-      <h3 className="text-base font-medium text-gray-900">How would you like to start?</h3>
-      <p className="text-sm text-gray-600 mt-1">
-        Build from scratch or load existing data.
-      </p>
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <ModeCard
-          onClick={() => onPick('empty')}
-          title="Empty chart"
-          hint="Pick a cadence and date range; we'll generate empty rows for you to fill in."
-        />
-        <ModeCard
-          onClick={() => onPick('upload')}
-          title="Upload spreadsheet"
-          hint="Drag a .csv or .xlsx file. We'll suggest title, axis labels and cadence."
-        />
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-900">Let&rsquo;s build your chart</h3>
+        <p className="text-sm text-gray-500 mt-1.5">
+          Start by entering your own data, or import a spreadsheet below.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onPick('empty')}
+        autoFocus
+        className="w-full text-left rounded-xl p-6 transition-all group bg-gradient-to-br from-violet-600 to-indigo-700 hover:from-violet-700 hover:to-indigo-800 shadow-md hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-bold text-white">
+            Enter my own data
+          </span>
+          <span className="text-xl text-white/80 group-hover:translate-x-1 transition-transform" aria-hidden>
+            →
+          </span>
+        </div>
+        <p className="mt-1.5 text-sm text-violet-100">
+          Pick a cadence and date range — we&rsquo;ll set up empty rows for you to fill in.
+        </p>
+      </button>
+
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) onFileUpload(f);
+        }}
+        className={`border-2 border-dashed rounded-xl p-7 text-center transition-colors ${
+          dragging ? 'border-teal-400 bg-teal-50' : 'border-gray-300 bg-gray-50/50 hover:border-teal-300 hover:bg-teal-50/40'
+        }`}
+      >
+        <p className="text-sm font-medium text-gray-600 mb-1">
+          Or drop a file to import data
+        </p>
+        <p className="text-xs text-gray-500 mb-3">
+          .csv or .xlsx — we&rsquo;ll suggest a title, axis labels and cadence.
+        </p>
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+          Choose file…
+          <input
+            type="file"
+            accept={ACCEPT_ATTR}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              if (f) onFileUpload(f);
+              e.target.value = '';
+            }}
+          />
+        </label>
       </div>
     </div>
-  );
-}
-
-function ModeCard({
-  onClick,
-  title,
-  hint,
-}: {
-  onClick: () => void;
-  title: string;
-  hint: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-left border-2 rounded-lg p-5 transition-colors group border-gray-200 hover:border-blue-500"
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-base font-semibold text-gray-900 group-hover:text-blue-700">
-          {title}
-        </span>
-        <span className="text-blue-500 group-hover:translate-x-1 transition-transform">→</span>
-      </div>
-      <p className="mt-2 text-sm text-gray-600">{hint}</p>
-    </button>
   );
 }
 
@@ -630,11 +746,12 @@ function DetailsStep({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const continueRef = useRef<HTMLButtonElement>(null);
   return (
     <div>
-      <h3 className="text-base font-medium text-gray-900">Chart details</h3>
-      <p className="text-sm text-gray-600 mt-1">
-        Give your chart a name and label its axes.
+      <h3 className="text-xl font-bold text-gray-900">Name your chart</h3>
+      <p className="text-sm text-gray-500 mt-1">
+        What are you tracking? Give it a name and tell us what the axes mean.
       </p>
       <DetailsFields
         title={title}
@@ -645,13 +762,16 @@ function DetailsStep({
         setXAxisLabel={setXAxisLabel}
         yAxisLabel={yAxisLabel}
         setYAxisLabel={setYAxisLabel}
+        requiredAxes
+        onDownFromLast={() => continueRef.current?.focus()}
       />
       <NavRow
         onBack={onBack}
         primaryLabel="Continue →"
         primaryDisabled={!canContinue}
-        primaryDisabledHint={canContinue ? undefined : 'A title is required.'}
+        primaryDisabledHint={canContinue ? undefined : 'Title, X-axis label, and Y-axis label are all required.'}
         onPrimary={onContinue}
+        primaryRef={continueRef}
       />
     </div>
   );
@@ -659,19 +779,29 @@ function DetailsStep({
 
 // --- Step 2 (empty): cadence + range -------------------------------------
 
+function parseISODate(text: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const d = new Date(text + 'T00:00:00');
+  return isNaN(d.getTime()) ? null : text;
+}
+
 function EmptyRangeStep({
   increment,
   setIncrement,
+  initialRows,
   onBack,
   onContinue,
 }: {
   increment: Increment;
   setIncrement: (v: Increment) => void;
+  initialRows?: MeasureRow[];
   onBack: () => void;
   onContinue: (rows: MeasureRow[]) => void;
 }) {
-  const epoch = useMemo(() => addDays(todayISO(), -365 * 15), []);
-  const horizon = useMemo(() => addDays(todayISO(), 365 * 5), []);
+  // When editing an existing chart, default to keeping the existing data.
+  const [keepExisting, setKeepExisting] = useState(!!initialRows?.length);
+  const epoch = useMemo(() => addDays(todayISO(), -365 * 5), []);
+  const horizon = useMemo(() => addDays(todayISO(), 365 * 1), []);
   const totalDays = useMemo(() => daysSince(epoch, horizon), [epoch, horizon]);
 
   const [endISO, setEndISO] = useState(() => todayISO());
@@ -679,21 +809,46 @@ function EmptyRangeStep({
     addDays(todayISO(), -defaultSpanDaysForIncrement(increment)),
   );
 
+  // Draft text values keep the raw typed string; sync from ISO when slider moves
+  const [startText, setStartText] = useState(() => startISO);
+  const [endText, setEndText] = useState(() => endISO);
+  useEffect(() => setStartText(startISO), [startISO]);
+  useEffect(() => setEndText(endISO), [endISO]);
+
   useEffect(() => {
-    setStartISO(addDays(endISO, -defaultSpanDaysForIncrement(increment)));
+    const s = addDays(endISO, -defaultSpanDaysForIncrement(increment));
+    setStartISO(s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [increment]);
+
+  const [entryMode, setEntryMode] = useState<'range' | 'manual'>('range');
+  const [manualText, setManualText] = useState('');
 
   const rows = useMemo(
     () => generateDateRows(startISO, endISO, increment),
     [startISO, endISO, increment],
   );
-  const datesValid = rows.length > 0;
-  const firstLabel = datesValid ? formatDateForAxis(rows[0].date, increment) : '';
-  const lastLabel =
-    datesValid && rows.length > 1
-      ? formatDateForAxis(rows[rows.length - 1].date, increment)
-      : firstLabel;
+
+  const { validDates, invalidLines } = useMemo(() => {
+    if (entryMode !== 'manual') return { validDates: [] as string[], invalidLines: [] as string[] };
+    const lines = manualText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    for (const line of lines) {
+      if (parseISODate(line)) valid.push(line);
+      else invalid.push(line);
+    }
+    return { validDates: [...new Set(valid)].sort(), invalidLines: invalid };
+  }, [entryMode, manualText]);
+
+  const manualRows = useMemo<MeasureRow[]>(
+    () => validDates.map((date) => ({ date, value: '', comment: { title: '', label: '', recalculate: false } })),
+    [validDates],
+  );
+
+  const datesValid = entryMode === 'range' ? rows.length > 0 : manualRows.length > 0;
+  const firstLabel = rows.length > 0 ? formatDateForAxis(rows[0].date, increment) : '';
+  const lastLabel = rows.length > 1 ? formatDateForAxis(rows[rows.length - 1].date, increment) : firstLabel;
 
   const startDay = Math.max(0, Math.min(totalDays, daysSince(epoch, startISO)));
   const endDay = Math.max(0, Math.min(totalDays, daysSince(epoch, endISO)));
@@ -702,6 +857,46 @@ function EmptyRangeStep({
   const onStartDay = (day: number) => setStartISO(addDays(epoch, Math.min(day, endDay)));
   const onEndDay = (day: number) => setEndISO(addDays(epoch, Math.max(day, startDay)));
 
+  // Keyboard navigation refs for the date text inputs
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLInputElement>(null);
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const manualRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCursorRef = useRef<number | null>(null);
+
+  const handleStartKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); endRef.current?.focus(); }
+  };
+  const handleEndKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); continueRef.current?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); startRef.current?.focus(); }
+  };
+
+  // Auto-insert hyphens when typing at column 4 or 7 of the current line
+  const handleManualKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!/^[0-9]$/.test(e.key)) return;
+    const ta = e.currentTarget;
+    const pos = ta.selectionStart ?? 0;
+    const val = ta.value;
+    const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+    const col = pos - lineStart;
+    if (col === 4 || col === 7) {
+      e.preventDefault();
+      const next = val.slice(0, pos) + '-' + e.key + val.slice(pos);
+      setManualText(next);
+      pendingCursorRef.current = pos + 2;
+    }
+  };
+
+  // Restore cursor after state-driven value update
+  useEffect(() => {
+    if (pendingCursorRef.current !== null && manualRef.current) {
+      const p = pendingCursorRef.current;
+      pendingCursorRef.current = null;
+      manualRef.current.setSelectionRange(p, p);
+    }
+  });
+
   return (
     <div>
       <h3 className="text-base font-medium text-gray-900">Cadence and date range</h3>
@@ -709,80 +904,203 @@ function EmptyRangeStep({
         Pick how often you sample, then the window the chart should cover.
       </p>
 
+      {/* Mode toggle — above cadence grid */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setEntryMode('range')}
+          className={`rounded-lg border-2 py-2 text-sm font-medium transition-colors ${
+            entryMode === 'range'
+              ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
+              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+          }`}
+        >
+          Pick a date range
+        </button>
+        <button
+          type="button"
+          onClick={() => setEntryMode('manual')}
+          className={`rounded-lg border-2 py-2 text-sm font-medium transition-colors ${
+            entryMode === 'manual'
+              ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
+              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+          }`}
+        >
+          Enter X values manually
+        </button>
+      </div>
+
       <IncrementGrid current={increment} onChange={setIncrement} />
 
-      <div className="mt-6">
-        <label className="text-sm font-medium text-gray-700">Date range</label>
-        <div className="relative h-10 mt-3">
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded bg-gray-200" />
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded bg-blue-500"
-            style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
-          />
-          <input
-            type="range"
-            min={0}
-            max={totalDays}
-            value={startDay}
-            onChange={(e) => onStartDay(Number(e.target.value))}
-            className="absolute inset-0 w-full appearance-none bg-transparent pointer-events-none range-thumb-start"
-            aria-label="Start date"
-          />
-          <input
-            type="range"
-            min={0}
-            max={totalDays}
-            value={endDay}
-            onChange={(e) => onEndDay(Number(e.target.value))}
-            className="absolute inset-0 w-full appearance-none bg-transparent pointer-events-none range-thumb-end"
-            aria-label="End date"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-          <label className="text-sm">
-            <span className="text-gray-600">Start</span>
-            <input
-              type="date"
-              value={startISO}
-              onChange={(e) => e.target.value && setStartISO(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded px-2 py-1"
+      {entryMode === 'range' && (
+        <div className="mt-5">
+          <div className="relative h-10 mt-1">
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded bg-gray-200" />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded bg-indigo-500"
+              style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
             />
-          </label>
-          <label className="text-sm">
-            <span className="text-gray-600">End</span>
             <input
-              type="date"
-              value={endISO}
-              onChange={(e) => e.target.value && setEndISO(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded px-2 py-1"
+              type="range"
+              min={0}
+              max={totalDays}
+              value={startDay}
+              onChange={(e) => onStartDay(Number(e.target.value))}
+              className="absolute inset-0 w-full appearance-none bg-transparent pointer-events-none range-thumb-start"
+              aria-label="Start date"
             />
-          </label>
-        </div>
-      </div>
+            <input
+              type="range"
+              min={0}
+              max={totalDays}
+              value={endDay}
+              onChange={(e) => onEndDay(Number(e.target.value))}
+              className="absolute inset-0 w-full appearance-none bg-transparent pointer-events-none range-thumb-end"
+              aria-label="End date"
+            />
+          </div>
 
-      <div className="mt-6 bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-700">
-        {datesValid ? (
-          <>
-            <span className="font-medium">{rows.length}</span> row
-            {rows.length === 1 ? '' : 's'} will be generated
-            {rows.length >= 2 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            <div>
+              <label htmlFor="range-start" className="block text-sm text-gray-600 mb-1">Start</label>
+              <input
+                id="range-start"
+                ref={startRef}
+                type="text"
+                value={startText}
+                onChange={(e) => {
+                  setStartText(e.target.value);
+                  const iso = parseISODate(e.target.value);
+                  if (iso) setStartISO(iso);
+                }}
+                onKeyDown={handleStartKey}
+                placeholder="YYYY-MM-DD"
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+            <div>
+              <label htmlFor="range-end" className="block text-sm text-gray-600 mb-1">End</label>
+              <input
+                id="range-end"
+                ref={endRef}
+                type="text"
+                value={endText}
+                onChange={(e) => {
+                  setEndText(e.target.value);
+                  const iso = parseISODate(e.target.value);
+                  if (iso) setEndISO(iso);
+                }}
+                onKeyDown={handleEndKey}
+                placeholder="YYYY-MM-DD"
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-700">
+            {datesValid ? (
               <>
-                : <span className="font-medium">{firstLabel}</span> →{' '}
-                <span className="font-medium">{lastLabel}</span>
+                <span className="font-medium">{rows.length}</span> row
+                {rows.length === 1 ? '' : 's'} will be generated
+                {rows.length >= 2 && (
+                  <>
+                    : <span className="font-medium">{firstLabel}</span> →{' '}
+                    <span className="font-medium">{lastLabel}</span>
+                  </>
+                )}
+                .
               </>
+            ) : (
+              <span className="text-amber-700">End date must be on or after the start date.</span>
             )}
-            .
-          </>
-        ) : (
-          <span className="text-amber-700">End date must be on or after the start date.</span>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
+
+      {entryMode === 'manual' && (
+        <div className="mt-5">
+          <label htmlFor="manual-dates" className="block text-sm font-medium text-gray-700 mb-1.5">
+            One date per line{' '}
+            <span className="font-normal text-gray-400">(YYYY-MM-DD)</span>
+          </label>
+          <textarea
+            id="manual-dates"
+            ref={manualRef}
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+            onKeyDown={handleManualKeyDown}
+            placeholder={'2024-01-01\n2024-02-01\n2024-03-01'}
+            rows={8}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-300"
+            autoFocus
+          />
+          {validDates.length > 0 && (
+            <p className="mt-1.5 text-sm text-green-700 font-medium">
+              {validDates.length} date{validDates.length === 1 ? '' : 's'} ready.
+            </p>
+          )}
+          {invalidLines.length > 0 && (
+            <p className="mt-1 text-xs text-amber-700">
+              {invalidLines.length} line{invalidLines.length === 1 ? '' : 's'} couldn&rsquo;t be parsed:{' '}
+              {invalidLines.slice(0, 3).map((l) => `"${l}"`).join(', ')}
+              {invalidLines.length > 3 ? '…' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Keep / replace toggle — only shown when editing an existing chart */}
+      {initialRows && initialRows.length > 0 && (
+        <div className="mt-5 rounded-xl border-2 border-indigo-100 bg-indigo-50 p-4">
+          <p className="text-sm font-semibold text-indigo-900 mb-3">
+            Your existing data
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setKeepExisting(true)}
+              className={`rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+                keepExisting
+                  ? 'border-indigo-500 bg-white text-indigo-800 shadow-sm'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <span className="block font-semibold">Keep my data</span>
+              <span className="text-xs text-gray-500 font-normal mt-0.5 block">
+                {initialRows.length} existing row{initialRows.length === 1 ? '' : 's'} — only update cadence and settings
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setKeepExisting(false)}
+              className={`rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+                !keepExisting
+                  ? 'border-rose-400 bg-white text-rose-800 shadow-sm'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <span className="block font-semibold">Replace with new dates</span>
+              <span className="text-xs text-gray-500 font-normal mt-0.5 block">
+                Discard current data and generate a fresh set of empty rows
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <NavRow
         onBack={onBack}
         primaryLabel="Continue →"
-        primaryDisabled={!datesValid}
-        onPrimary={() => onContinue(rows)}
+        primaryDisabled={keepExisting ? false : !datesValid}
+        primaryDisabledHint={!keepExisting && !datesValid && entryMode === 'manual' ? 'Add at least one valid YYYY-MM-DD date.' : undefined}
+        primaryRef={continueRef}
+        onPrimary={() => {
+          if (keepExisting && initialRows?.length) {
+            onContinue(initialRows);
+          } else {
+            onContinue(entryMode === 'range' ? rows : manualRows);
+          }
+        }}
       />
     </div>
   );
@@ -1666,16 +1984,16 @@ function ChartSettingsStep({
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Renders one chart per stratum — the MDC alternative to rolling
-              averages. Options here are filtered to those that make sense
-              for your <strong>{increment}</strong> cadence.
+              Shows a separate chart for each group in your data — useful for
+              spotting patterns like whether performance differs between days of
+              the week or months of the year. Leave as <strong>None</strong> if
+              you just want a single overall chart.
             </p>
           </div>
         )}
         {!showSplit && (
           <div className="text-xs text-gray-500">
-            Sub-process splits aren&rsquo;t available for <strong>{increment}</strong>{' '}
-            data — there&rsquo;s no finer-grained pattern to surface.
+            No sub-group split options are available at this data frequency.
           </div>
         )}
       </div>
@@ -1735,6 +2053,8 @@ function DetailsFields({
   setYAxisLabel,
   xAxisHint,
   yAxisHint,
+  requiredAxes = false,
+  onDownFromLast,
 }: {
   title: string;
   setTitle: (v: string) => void;
@@ -1746,69 +2066,137 @@ function DetailsFields({
   setYAxisLabel: (v: string) => void;
   xAxisHint?: string;
   yAxisHint?: string;
+  requiredAxes?: boolean;
+  onDownFromLast?: () => void;
 }) {
+  const titleRef = useRef<HTMLInputElement>(null);
+  const xRef = useRef<HTMLInputElement>(null);
+  const yRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+
+  // Order: title(0) → x(1) → y(2) → description(3)
+  const focusIndex = (i: number) => {
+    const els = [titleRef.current, xRef.current, yRef.current, descRef.current] as Array<HTMLElement | null>;
+    els[i]?.focus();
+  };
+
+  const navKeyDown = (i: number, isTextarea = false) =>
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown' || (!isTextarea && e.key === 'Enter')) {
+        if (i < 3) { e.preventDefault(); focusIndex(i + 1); }
+        else if (onDownFromLast) { e.preventDefault(); onDownFromLast(); }
+      } else if (e.key === 'ArrowUp') {
+        if (i > 0) { e.preventDefault(); focusIndex(i - 1); }
+      }
+    };
+
+  const titleMissing = !title.trim();
   const xMissing = !xAxisLabel.trim();
   const yMissing = !yAxisLabel.trim();
+
+  const inputBase =
+    'w-full border-2 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors';
+
   return (
-    <div className="mt-4 space-y-3">
-      <label className="block text-sm">
-        <span className="text-gray-600">
-          Title <span className="text-red-600">*</span>
-        </span>
+    <div className="mt-6 space-y-5">
+      <div>
+        <label htmlFor="df-title" className="block text-sm font-semibold text-indigo-900 mb-1.5">
+          Chart name <span className="text-red-500">*</span>
+        </label>
         <input
+          id="df-title"
+          ref={titleRef}
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={navKeyDown(0)}
           placeholder="e.g. Daily falls per 1000 occupied bed days"
-          className="mt-1 w-full border border-gray-300 rounded px-2 py-1.5"
+          className={`${inputBase} ${
+            titleMissing ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
           autoFocus
         />
-      </label>
-      <label className="block text-sm">
-        <span className="text-gray-600">Description</span>
+      </div>
+
+      <div>
+        <label htmlFor="df-xlabel" className="block text-sm font-semibold text-indigo-900 mb-1.5">
+          X-axis label{' '}
+          {requiredAxes ? (
+            <span className="text-red-500">*</span>
+          ) : (
+            <span className="text-gray-400 font-normal text-xs">optional</span>
+          )}
+        </label>
+        <input
+          id="df-xlabel"
+          ref={xRef}
+          type="text"
+          value={xAxisLabel}
+          onChange={(e) => setXAxisLabel(e.target.value)}
+          onKeyDown={navKeyDown(1)}
+          placeholder="e.g. Month"
+          className={`${inputBase} ${
+            requiredAxes && xMissing
+              ? 'border-red-400 bg-red-50'
+              : xAxisHint && xMissing
+                ? 'border-amber-300 bg-amber-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        />
+        {xAxisHint && (
+          <p className={`mt-1.5 text-xs ${xMissing ? 'text-amber-700' : 'text-gray-500'}`}>
+            {xMissing ? `Couldn't derive a label. ${xAxisHint}` : xAxisHint}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="df-ylabel" className="block text-sm font-semibold text-indigo-900 mb-1.5">
+          Y-axis label{' '}
+          {requiredAxes ? (
+            <span className="text-red-500">*</span>
+          ) : (
+            <span className="text-gray-400 font-normal text-xs">optional</span>
+          )}
+        </label>
+        <input
+          id="df-ylabel"
+          ref={yRef}
+          type="text"
+          value={yAxisLabel}
+          onChange={(e) => setYAxisLabel(e.target.value)}
+          onKeyDown={navKeyDown(2)}
+          placeholder="e.g. Falls per 1000 OBD"
+          className={`${inputBase} ${
+            requiredAxes && yMissing
+              ? 'border-red-400 bg-red-50'
+              : yAxisHint && yMissing
+                ? 'border-amber-300 bg-amber-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        />
+        {yAxisHint && (
+          <p className={`mt-1.5 text-xs ${yMissing ? 'text-amber-700' : 'text-gray-500'}`}>
+            {yMissing ? `Couldn't derive a label. ${yAxisHint}` : yAxisHint}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="df-desc" className="block text-sm font-semibold text-indigo-900 mb-1.5">
+          Description{' '}
+          <span className="text-gray-400 font-normal text-xs">optional</span>
+        </label>
         <textarea
+          id="df-desc"
+          ref={descRef}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What is this chart measuring, and why does it matter?"
+          onKeyDown={navKeyDown(3, true)}
+          placeholder="What are you tracking, and why does it matter?"
           rows={2}
-          className="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 resize-y"
+          className={`${inputBase} border-gray-200 bg-white hover:border-gray-300 resize-y`}
         />
-      </label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="block text-sm">
-          <span className="text-gray-600">X-axis label</span>
-          <input
-            type="text"
-            value={xAxisLabel}
-            onChange={(e) => setXAxisLabel(e.target.value)}
-            placeholder="e.g. Month"
-            className={`mt-1 w-full border rounded px-2 py-1.5 ${
-              xAxisHint && xMissing ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
-            }`}
-          />
-          {xAxisHint && (
-            <span className={`block mt-1 text-xs ${xMissing ? 'text-amber-700' : 'text-gray-500'}`}>
-              {xMissing ? `Couldn't derive a label. ${xAxisHint}` : xAxisHint}
-            </span>
-          )}
-        </label>
-        <label className="block text-sm">
-          <span className="text-gray-600">Y-axis label</span>
-          <input
-            type="text"
-            value={yAxisLabel}
-            onChange={(e) => setYAxisLabel(e.target.value)}
-            placeholder="e.g. Falls per 1000 OBD"
-            className={`mt-1 w-full border rounded px-2 py-1.5 ${
-              yAxisHint && yMissing ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
-            }`}
-          />
-          {yAxisHint && (
-            <span className={`block mt-1 text-xs ${yMissing ? 'text-amber-700' : 'text-gray-500'}`}>
-              {yMissing ? `Couldn't derive a label. ${yAxisHint}` : yAxisHint}
-            </span>
-          )}
-        </label>
       </div>
     </div>
   );
@@ -1852,9 +2240,9 @@ function IncrementOption({
   const active = current === value;
   return (
     <label
-      className={`min-w-[120px] border rounded p-3 cursor-pointer transition-colors ${
+      className={`min-w-[120px] border-2 rounded-lg p-3 cursor-pointer transition-colors ${
         active
-          ? 'border-blue-500 bg-blue-50'
+          ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-200'
           : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
     >
@@ -1871,7 +2259,7 @@ function IncrementOption({
         {typeof rowCount === 'number' && (
           <span
             className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
-              active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+              active ? 'bg-violet-100 text-violet-800' : 'bg-gray-100 text-gray-600'
             }`}
           >
             {rowCount} row{rowCount === 1 ? '' : 's'}
@@ -1883,6 +2271,7 @@ function IncrementOption({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Select({
   label,
   value,
@@ -2080,12 +2469,14 @@ function NavRow({
   primaryLabel,
   primaryDisabled,
   primaryDisabledHint,
+  primaryRef,
 }: {
   onBack: () => void;
   onPrimary: () => void;
   primaryLabel: string;
   primaryDisabled?: boolean;
   primaryDisabledHint?: string;
+  primaryRef?: React.RefObject<HTMLButtonElement>;
 }) {
   return (
     <div className="mt-6 flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
@@ -2102,10 +2493,15 @@ function NavRow({
           <span className="text-xs text-amber-700">{primaryDisabledHint}</span>
         )}
         <button
+          ref={primaryRef}
           type="button"
           onClick={onPrimary}
           disabled={primaryDisabled}
-          className="px-4 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+            primaryDisabled
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 shadow-md hover:shadow-lg focus-visible:ring-violet-500'
+          }`}
         >
           {primaryLabel}
         </button>

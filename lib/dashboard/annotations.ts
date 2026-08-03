@@ -1,0 +1,68 @@
+import type { AnnotationDef } from './types';
+
+export const NHS_ANNOTATIONS: AnnotationDef[] = [
+  {
+    id: 'nhs-covid-start',
+    label: 'COVID-19 pandemic',
+    date: '2020-03-23',
+    endDate: '2022-04-01',
+    color: '#d5281b',
+    description: 'First national lockdown began 23 March 2020. Edit date range to match your service\'s experience.',
+  },
+  {
+    id: 'nhs-winter-pressures',
+    label: 'Winter pressures',
+    date: '2023-12-01',
+    endDate: '2024-02-28',
+    color: '#41B6E6',
+    description: 'Winter pressure period. Update dates to match the relevant year.',
+  },
+  {
+    id: 'nhs-strike-action',
+    label: 'Strike action',
+    date: '2023-01-12',
+    endDate: '',
+    color: '#e6861b',
+    description: 'NHS industrial action. Update date to match the specific strike day(s) relevant to your data.',
+  },
+  {
+    id: 'nhs-new-policy',
+    label: 'New policy / guideline',
+    date: '2024-04-01',
+    endDate: '',
+    color: '#7c3aed',
+    description: 'A new policy, guideline, or pathway was introduced. Update the date and label to be specific.',
+  },
+  {
+    id: 'nhs-system-go-live',
+    label: 'System go-live',
+    date: '2024-04-01',
+    endDate: '',
+    color: '#007f3b',
+    description: 'A new clinical system or IT system went live. Update the date to match your go-live.',
+  },
+  {
+    id: 'nhs-bank-holiday',
+    label: 'Bank holiday',
+    date: '2024-12-25',
+    endDate: '',
+    color: '#6b7280',
+    description: 'Public bank holiday. Update the date. Useful for explaining dips in activity data.',
+  },
+  {
+    id: 'nhs-staffing-change',
+    label: 'Staffing change',
+    date: '2024-04-01',
+    endDate: '',
+    color: '#005EB8',
+    description: 'Significant change in staffing levels, rotas, or clinical leadership. Update date and label.',
+  },
+  {
+    id: 'nhs-service-change',
+    label: 'Service reconfiguration',
+    date: '2024-04-01',
+    endDate: '',
+    color: '#003087',
+    description: 'A significant service change or reconfiguration. Update the date and label to be specific.',
+  },
+];

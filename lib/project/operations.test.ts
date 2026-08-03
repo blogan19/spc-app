@@ -182,6 +182,7 @@ describe('PDSA cycle operations', () => {
   });
 
   it('locks the prediction the moment Do starts', () => {
+    // eslint-disable-next-line prefer-const
     let { project: next, cycleId } = addPDSACycle(project, 'C');
     next = updatePDSACycle(next, cycleId, { prediction: 'Reduce by 15%' });
     next = startPDSADo(next, cycleId);
@@ -197,6 +198,7 @@ describe('PDSA cycle operations', () => {
   });
 
   it('still allows non-prediction fields to be edited after lock', () => {
+    // eslint-disable-next-line prefer-const
     let { project: next, cycleId } = addPDSACycle(project, 'C');
     next = startPDSADo(next, cycleId);
     next = updatePDSACycle(next, cycleId, { doNotes: 'team briefed' });
@@ -215,6 +217,7 @@ describe('PDSA cycle operations', () => {
   });
 
   it('runs the full happy-path state machine', () => {
+    // eslint-disable-next-line prefer-const
     let { project: p, cycleId } = addPDSACycle(project, 'C');
     p = updatePDSACycle(p, cycleId, { question: 'Q', prediction: 'P' });
     p = startPDSADo(p, cycleId);

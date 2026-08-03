@@ -755,7 +755,7 @@ const LineChart = ({ params }) => {
         .attr('class', 'x label')
         .attr('text-anchor', 'middle')
         .attr('x', width / 2)
-        .attr('y', height * 0.98)
+        .attr('y', height - 4)
         .attr('font-size', `${axisLabelSize}px`)
         .text(xAxisLabel);
     }
