@@ -56,6 +56,17 @@ export default function SpcTileEditor({ initialMeasure, onSave, onCancel }: SpcT
     <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto">
       {/* Sticky editor header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+          title="Close"
+          aria-label="Close"
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+            <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+          </svg>
+        </button>
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">
             {isNew ? 'Add SPC chart' : 'Edit SPC chart'}
@@ -67,16 +78,9 @@ export default function SpcTileEditor({ initialMeasure, onSave, onCancel }: SpcT
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
             onClick={() => onSave(measure)}
             disabled={measure.data.length === 0}
-            className="px-4 py-1.5 rounded-lg bg-[#005EB8] hover:bg-[#003087] text-white text-sm font-medium
+            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isNew ? 'Add to dashboard' : 'Save changes'}

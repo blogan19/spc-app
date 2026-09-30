@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   ChartConfig,
   KpiTileConfig,
@@ -25,6 +26,10 @@ import type {
   TitleTileConfig,
   SectionTileConfig,
   ScorecardTileConfig,
+  DividerTileConfig,
+  GaugeTileConfig,
+  TreemapTileConfig,
+  SankeyTileConfig,
   DashboardTile,
   DashboardTheme,
   Dataset,
@@ -56,6 +61,9 @@ import ChartDataTable, { hasTableView } from './ChartDataTable';
 import TileExportMenu from './TileExportMenu';
 import DrillThroughModal from './DrillThroughModal';
 import { applyDateGrouping } from '@/lib/dashboard/financialYear';
+import DashGaugeChart from './charts/DashGaugeChart';
+import DashTreemapChart, { type TreemapNode } from './charts/DashTreemapChart';
+import DashSankeyChart, { type SankeyLink } from './charts/DashSankeyChart';
 
 interface TileRendererProps {
   tile: DashboardTile;
@@ -69,6 +77,7 @@ interface TileRendererProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onDetails: () => void;
+  readOnly?: boolean;
 }
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -102,7 +111,7 @@ function formatFreshnessDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function TileRenderer({ chart, datasets, theme, ragRules, annotations, dashboardTitle, onEdit, onDelete, onDuplicate, onDetails }: TileRendererProps) {
+export default function TileRenderer({ chart, datasets, theme, ragRules, annotations, dashboardTitle, onEdit, onDelete, onDuplicate, onDetails, readOnly = false }: TileRendererProps) {
   const actions = chart.details?.actions ?? [];
   const overdueCount = actions.filter(
     (a) => a.status !== 'complete' && a.dueDate && a.dueDate < TODAY,
@@ -125,23 +134,45 @@ export default function TileRenderer({ chart, datasets, theme, ragRules, annotat
   } | null>(null);
   const drillDataset = drillFilter ? datasets.find((d) => d.id === drillFilter.datasetId) ?? null : null;
 
+  const [showFullscreen, setShowFullscreen] = useState(false);
+  const canFullscreen = chart.type !== 'title' && chart.type !== 'section';
+
+  useEffect(() => {
+    if (!showFullscreen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowFullscreen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [showFullscreen]);
+
+  const handleTileClick = (e: React.MouseEvent) => {
+    if (readOnly) {
+      if (canShowTable && !(e.target as HTMLElement).closest('button')) setShowTable((v) => !v);
+    } else {
+      onEdit();
+    }
+  };
+
   return (
     <>
     <div
-      className="relative h-full flex flex-col overflow-hidden group cursor-pointer"
-      onClick={onEdit}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onEdit()}
-      aria-label={`Edit ${chart.name}`}
+      className={`relative h-full flex flex-col overflow-hidden group ${
+        !readOnly || canShowTable ? 'cursor-pointer' : ''
+      }`}
+      onClick={handleTileClick}
+      role={!readOnly ? 'button' : undefined}
+      tabIndex={!readOnly ? 0 : undefined}
+      onKeyDown={!readOnly ? (e) => e.key === 'Enter' && onEdit() : undefined}
+      aria-label={!readOnly ? `Edit ${chart.name}` : undefined}
     >
-      {/* Drag handle bar — visible on hover */}
-      <div
-        className="drag-handle absolute inset-x-0 top-0 h-7 z-20 opacity-0 group-hover:opacity-100 transition-opacity
-                   cursor-grab active:cursor-grabbing
-                   bg-gradient-to-b from-black/5 to-transparent"
-        onClick={(e) => e.stopPropagation()}
-      />
+      {/* Drag handle bar — only in edit mode */}
+      {!readOnly && (
+        <div
+          className="drag-handle absolute inset-x-0 top-0 h-7 z-20 opacity-0 group-hover:opacity-100 transition-opacity
+                     cursor-grab active:cursor-grabbing
+                     bg-gradient-to-b from-black/5 to-transparent"
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
 
       {/* Hover controls */}
       <div
@@ -149,44 +180,60 @@ export default function TileRenderer({ chart, datasets, theme, ragRules, annotat
                    opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={(e) => e.stopPropagation()}
       >
+        {canFullscreen && (
+          <button
+            type="button"
+            onClick={() => setShowFullscreen(true)}
+            title="Expand to fullscreen (Esc to close)"
+            className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-indigo-600 shadow-sm"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+            </svg>
+          </button>
+        )}
         <TileExportMenu
           chart={chart}
           datasets={datasets}
           dashboardTitle={dashboardTitle}
           contentRef={chartContentRef}
         />
-        <button
-          type="button"
-          onClick={onDetails}
-          title="View details / actions"
-          className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-[#005EB8] shadow-sm"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={onDuplicate}
-          title="Duplicate tile"
-          className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-gray-600 shadow-sm"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-            <rect x="9" y="9" width="13" height="13" rx="2" />
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeLinecap="round" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          title="Remove tile"
-          className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-red-500 shadow-sm"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {!readOnly && (
+          <>
+            <button
+              type="button"
+              onClick={onDetails}
+              title="View details / actions"
+              className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-indigo-600 shadow-sm"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onDuplicate}
+              title="Duplicate tile"
+              className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-gray-600 shadow-sm"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Remove tile"
+              className="p-1.5 rounded-lg bg-white/90 border border-gray-200 text-gray-400 hover:text-red-500 shadow-sm"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Chart content area — flex-1, badges/hints positioned within */}
@@ -207,18 +254,26 @@ export default function TileRenderer({ chart, datasets, theme, ragRules, annotat
 
         {/* View-as-table toggle */}
         {canShowTable && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setShowTable((v) => !v); }}
-            title={showTable ? 'View chart' : 'View as accessible data table'}
-            aria-pressed={showTable}
-            className={`absolute bottom-1 right-2 z-20 text-xs px-1.5 py-0.5 rounded border transition-colors shadow-sm
-                       ${showTable
-                         ? 'bg-[#005EB8] border-[#005EB8] text-white'
-                         : 'bg-white/80 border-gray-200 text-gray-400 hover:text-[#005EB8] hover:border-[#005EB8]'}`}
-          >
-            {showTable ? '◀ Chart' : '⊞ Table'}
-          </button>
+          <>
+            {readOnly && !showTable && (
+              <div className="absolute bottom-1.5 left-2 z-10 text-xs text-slate-400
+                              opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Click to view data
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowTable((v) => !v); }}
+              title={showTable ? 'View chart' : 'View as accessible data table'}
+              aria-pressed={showTable}
+              className={`absolute bottom-1 right-2 z-20 text-xs px-1.5 py-0.5 rounded border transition-colors shadow-sm
+                         ${showTable
+                           ? 'bg-indigo-600 border-indigo-500 text-white'
+                           : 'bg-white/80 border-gray-200 text-gray-400 hover:text-indigo-600 hover:border-indigo-400'}`}
+            >
+              {showTable ? '◀ Chart' : '⊞ Table'}
+            </button>
+          </>
         )}
 
         {/* Tile chart content */}
@@ -323,12 +378,24 @@ export default function TileRenderer({ chart, datasets, theme, ragRules, annotat
               {chart.type === 'scorecard' && (
                 <ScorecardTileContent config={chart.config as ScorecardTileConfig} datasets={datasets} theme={theme} />
               )}
+              {chart.type === 'divider' && (
+                <DividerTileContent config={chart.config as DividerTileConfig} />
+              )}
+              {chart.type === 'gauge' && (
+                <GaugeTileContent config={chart.config as GaugeTileConfig} />
+              )}
+              {chart.type === 'treemap' && (
+                <TreemapTileContent config={chart.config as TreemapTileConfig} datasets={datasets} theme={theme} />
+              )}
+              {chart.type === 'sankey' && (
+                <SankeyTileContent config={chart.config as SankeyTileConfig} datasets={datasets} theme={theme} />
+              )}
             </>
           )}
         </div>
 
-        {/* Edit hint on hover — only when no table toggle occupies that corner */}
-        {!canShowTable && (
+        {/* Hint text — only when no table toggle occupies that corner */}
+        {!canShowTable && !readOnly && (
           <div
             className="absolute bottom-1.5 right-2 z-10 text-xs text-gray-400
                        opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
@@ -336,10 +403,18 @@ export default function TileRenderer({ chart, datasets, theme, ragRules, annotat
             Click to edit
           </div>
         )}
+        {!canShowTable && readOnly && (
+          <div
+            className="absolute bottom-1.5 right-2 z-10 text-xs text-slate-400
+                       opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+          >
+            Read-only
+          </div>
+        )}
       </div>
 
       {/* Data freshness footer */}
-      {freshnessDate && (
+      {freshnessDate && !chart.details?.hideFreshnessFooter && (
         <div
           className={`flex-shrink-0 flex items-center gap-1 px-2 py-0.5 border-t pointer-events-none
                       ${isStale
@@ -366,6 +441,141 @@ export default function TileRenderer({ chart, datasets, theme, ragRules, annotat
         chartName={chart.name}
         onClose={() => setDrillFilter(null)}
       />
+    )}
+    {showFullscreen && canFullscreen && createPortal(
+      <div
+        className="fixed inset-0 z-[200] flex items-center justify-center p-6"
+        style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
+        onClick={() => setShowFullscreen(false)}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ width: '94vw', height: '92vh' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Modal header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-sm font-semibold text-gray-800 truncate">{chart.name}</h2>
+            <button
+              type="button"
+              onClick={() => setShowFullscreen(false)}
+              title="Close (Esc)"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Chart */}
+          <div className="flex-1 min-h-0 overflow-hidden relative">
+            {chart.type === 'spc' && (
+              <SpcTileContent measure={(chart.config as SpcTileConfig).measure} />
+            )}
+            {chart.type === 'kpi' && (
+              <KpiTileContent config={chart.config as KpiTileConfig} ragRules={ragRules} />
+            )}
+            {chart.type === 'text' && (
+              <TextTileContent config={chart.config as TextTileConfig} />
+            )}
+            {chart.type === 'bar' && (
+              <BarTileContent chart={chart} config={chart.config as BarTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'line' && (
+              <LineTileContent
+                chart={chart}
+                config={chart.config as LineTileConfig}
+                datasets={datasets}
+                theme={theme}
+                annotations={annotations.filter((a) => ((chart.config as LineTileConfig).annotationIds ?? []).includes(a.id))}
+              />
+            )}
+            {chart.type === 'table' && (
+              <TableTileContent config={chart.config as DataTableTileConfig} datasets={datasets} />
+            )}
+            {chart.type === 'image' && (
+              <ImageTileContent config={chart.config as ImageTileConfig} />
+            )}
+            {chart.type === 'run' && (
+              <RunTileContent
+                config={chart.config as RunTileConfig}
+                datasets={datasets}
+                annotations={annotations.filter((a) => ((chart.config as RunTileConfig).annotationIds ?? []).includes(a.id))}
+              />
+            )}
+            {chart.type === 'pareto' && (
+              <ParetoTileContent config={chart.config as ParetoTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'heatmap' && (
+              <HeatmapTileContent config={chart.config as HeatmapTileConfig} datasets={datasets} />
+            )}
+            {chart.type === 'pie' && (
+              <PieTileContent config={chart.config as PieTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'area' && (
+              <AreaTileContent config={chart.config as AreaTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'scatter' && (
+              <ScatterTileContent config={chart.config as ScatterTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'funnel' && (
+              <FunnelTileContent config={chart.config as FunnelTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'gantt' && (
+              <GanttTileContent config={chart.config as GanttTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'waterfall' && (
+              <WaterfallTileContent config={chart.config as WaterfallTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'pyramid' && (
+              <PyramidTileContent config={chart.config as PyramidTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'boxplot' && (
+              <BoxPlotTileContent config={chart.config as BoxPlotTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'calendar' && (
+              <CalendarTileContent config={chart.config as CalendarHeatmapTileConfig} datasets={datasets} />
+            )}
+            {chart.type === 'scorecard' && (
+              <ScorecardTileContent config={chart.config as ScorecardTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'divider' && (
+              <DividerTileContent config={chart.config as DividerTileConfig} />
+            )}
+            {chart.type === 'gauge' && (
+              <GaugeTileContent config={chart.config as GaugeTileConfig} />
+            )}
+            {chart.type === 'treemap' && (
+              <TreemapTileContent config={chart.config as TreemapTileConfig} datasets={datasets} theme={theme} />
+            )}
+            {chart.type === 'sankey' && (
+              <SankeyTileContent config={chart.config as SankeyTileConfig} datasets={datasets} theme={theme} />
+            )}
+          </div>
+
+          {/* Freshness footer */}
+          {freshnessDate && !chart.details?.hideFreshnessFooter && (
+            <div
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1 border-t pointer-events-none
+                          ${isStale
+                            ? 'bg-amber-50 border-amber-100 text-amber-600'
+                            : 'bg-gray-50 border-gray-100 text-gray-400'
+                          }`}
+              style={{ fontSize: '11px', lineHeight: '18px' }}
+            >
+              {isStale && (
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 flex-shrink-0">
+                  <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              )}
+              Data as of {formatFreshnessDate(freshnessDate)}
+              {isStale && ' — data may be out of date'}
+            </div>
+          )}
+        </div>
+      </div>,
+      document.body
     )}
     </>
   );
@@ -415,18 +625,27 @@ function SpcTileContent({ measure }: { measure: Measure }) {
           marginLeft: 48,
           marginRight: 20,
           titleSize: 13,
-          axisLabelSize: 10,
+          axisLabelSize: 16,
         }}
       />
     </div>
   );
 }
 
+const CURRENCY_PREFIX_RE = /^[£$€¥₹₩₪฿₫]/;
+
+function splitUnit(unit: string): { prefix: string; suffix: string } {
+  const trimmed = unit?.trim() ?? '';
+  if (CURRENCY_PREFIX_RE.test(trimmed)) return { prefix: trimmed[0], suffix: trimmed.slice(1).trim() };
+  return { prefix: '', suffix: trimmed };
+}
+
 function KpiTileContent({ config, ragRules }: { config: KpiTileConfig; ragRules: RagRule[] }) {
-  const { label, value, unit, comparisonValue, comparisonLabel, higherIsBetter, ragRuleId } = config;
+  const { label, value, unit, comparisonValue, comparisonLabel, higherIsBetter, ragRuleId, bgColor, valueColor, labelColor } = config;
 
   const activeRule = ragRules.find((r) => r.id === ragRuleId) ?? null;
   const ragStatus = activeRule && value != null ? evaluateRag(value, activeRule) : null;
+  const { prefix, suffix } = splitUnit(unit ?? '');
 
   let deltaEl: React.ReactNode = null;
   if (comparisonValue != null && value != null) {
@@ -434,8 +653,7 @@ function KpiTileContent({ config, ragRules }: { config: KpiTileConfig; ragRules:
     const isGood = higherIsBetter !== false ? diff >= 0 : diff <= 0;
     deltaEl = (
       <p className={`text-sm font-medium mt-1.5 ${isGood ? 'text-emerald-600' : 'text-red-600'}`}>
-        {diff >= 0 ? '▲' : '▼'} {comparisonLabel || 'Target'}: {comparisonValue}
-        {unit}
+        {diff >= 0 ? '▲' : '▼'} {comparisonLabel || 'Target'}: {prefix}{comparisonValue}{suffix}
       </p>
     );
   }
@@ -443,21 +661,30 @@ function KpiTileContent({ config, ragRules }: { config: KpiTileConfig; ragRules:
   return (
     <div
       className={`flex flex-col items-center justify-center h-full p-4 text-center transition-colors ${
-        ragStatus ? RAG_BG[ragStatus] : ''
+        !bgColor && ragStatus ? RAG_BG[ragStatus] : ''
       }`}
+      style={bgColor ? { backgroundColor: bgColor } : undefined}
     >
-      {ragStatus && (
+      {ragStatus && !bgColor && (
         <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1.5">
           <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${RAG_BADGE[ragStatus]}`} />
           {RAG_LABEL[ragStatus]}
         </span>
       )}
-      {label && <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">{label}</p>}
-      <div className="flex items-baseline gap-1">
-        <span className="text-5xl font-bold text-gray-900 tabular-nums">
+      {label && (
+        <p
+          className="text-xs font-semibold uppercase tracking-wide mb-1"
+          style={{ color: labelColor ?? (bgColor ? undefined : undefined) ?? '#6b7280' }}
+        >
+          {label}
+        </p>
+      )}
+      <div className="flex items-baseline gap-0.5">
+        {prefix && <span className="text-3xl font-normal" style={{ color: valueColor ?? '#9ca3af' }}>{prefix}</span>}
+        <span className="text-5xl font-bold tabular-nums" style={{ color: valueColor ?? '#111827' }}>
           {value != null ? value.toLocaleString() : '—'}
         </span>
-        {unit && <span className="text-2xl text-gray-400 font-normal">{unit}</span>}
+        {suffix && <span className="text-2xl font-normal" style={{ color: valueColor ?? '#9ca3af' }}>{suffix}</span>}
       </div>
       {deltaEl}
     </div>
@@ -714,7 +941,7 @@ function RunTileContent({ config, datasets, annotations }: { config: RunTileConf
           marginLeft: 48,
           marginRight: 20,
           titleSize: 13,
-          axisLabelSize: 10,
+          axisLabelSize: 16,
           outlierStatus: true,
           showMean: true,
           showLimits: false,
@@ -958,6 +1185,8 @@ function HeatmapTileContent({ config, datasets }: { config: HeatmapTileConfig; d
         width={dims.w}
         height={dims.h}
         fontFamily="Arial"
+        domainMin={config.domainMin}
+        domainMax={config.domainMax}
       />
     </div>
   );
@@ -1339,4 +1568,157 @@ function ScorecardTileContent({ config, datasets, theme }: { config: ScorecardTi
   const dataset = datasets.find((d) => d.id === config.datasetId);
   if (!dataset) return <div className="h-full flex items-center justify-center text-sm text-gray-400">Dataset not found — click to reconfigure</div>;
   return <DashScorecardChart dataset={dataset} config={config} fontFamily={theme.fontFamily} />;
+}
+
+function DividerTileContent({ config }: { config: DividerTileConfig }) {
+  return (
+    <div className="h-full flex items-center px-4">
+      <div className="relative w-full" style={{ borderTop: `${config.thickness}px solid ${config.color}` }}>
+        {config.label && (
+          <span
+            className={`absolute -top-2.5 bg-white px-2 text-xs text-slate-500 ${
+              config.labelPosition === 'center' ? 'left-1/2 -translate-x-1/2'
+                : config.labelPosition === 'right' ? 'right-4' : 'left-4'
+            }`}
+          >
+            {config.label}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GaugeTileContent({ config }: { config: GaugeTileConfig }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ w: 320, h: 220 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setDims({
+        w: Math.max(160, Math.floor(entry.contentRect.width)),
+        h: Math.max(100, Math.floor(entry.contentRect.height)),
+      });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="w-full h-full overflow-hidden">
+      <DashGaugeChart
+        label={config.label}
+        value={config.value}
+        minValue={config.minValue}
+        maxValue={config.maxValue}
+        unit={config.unit}
+        greenThreshold={config.greenThreshold}
+        amberThreshold={config.amberThreshold}
+        higherIsBetter={config.higherIsBetter}
+        width={dims.w}
+        height={dims.h}
+        fontFamily="Arial"
+      />
+    </div>
+  );
+}
+
+function TreemapTileContent({ config, datasets, theme }: { config: TreemapTileConfig; datasets: Dataset[]; theme: DashboardTheme }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ w: 480, h: 280 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setDims({
+        w: Math.max(200, Math.floor(entry.contentRect.width)),
+        h: Math.max(120, Math.floor(entry.contentRect.height)),
+      });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const dataset = datasets.find((d) => d.id === config.datasetId);
+  if (!dataset) return <div className="h-full flex items-center justify-center text-sm text-gray-400">Dataset not found — click to reconfigure</div>;
+
+  const nodes: TreemapNode[] = dataset.rows
+    .map((r) => ({
+      label: String(r[config.labelColumn] ?? ''),
+      value: Number(r[config.valueColumn]),
+      group: config.groupColumn ? String(r[config.groupColumn] ?? '') : undefined,
+    }))
+    .filter((n) => n.label && !isNaN(n.value) && n.value > 0);
+
+  if (nodes.length === 0) return <div className="h-full flex items-center justify-center text-sm text-gray-400">No data — click to reconfigure</div>;
+
+  return (
+    <div ref={containerRef} className="w-full h-full overflow-hidden">
+      <DashTreemapChart
+        data={nodes}
+        title={config.title}
+        width={dims.w}
+        height={dims.h}
+        fontFamily={theme.fontFamily}
+        colors={paletteColors(theme.palette, theme.customColours)}
+      />
+    </div>
+  );
+}
+
+function SankeyTileContent({ config, datasets, theme }: { config: SankeyTileConfig; datasets: Dataset[]; theme: DashboardTheme }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ w: 480, h: 280 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setDims({
+        w: Math.max(200, Math.floor(entry.contentRect.width)),
+        h: Math.max(120, Math.floor(entry.contentRect.height)),
+      });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const dataset = datasets.find((d) => d.id === config.datasetId);
+  if (!dataset) return <div className="h-full flex items-center justify-center text-sm text-gray-400">Dataset not found — click to reconfigure</div>;
+
+  const linkMap = new Map<string, number>();
+  for (const row of dataset.rows) {
+    const src = String(row[config.sourceColumn] ?? '').trim();
+    const tgt = String(row[config.targetColumn] ?? '').trim();
+    if (!src || !tgt) continue;
+    const key = `${src}|||${tgt}`;
+    const val = config.valueColumn ? Number(row[config.valueColumn]) : 1;
+    if (isNaN(val)) continue;
+    linkMap.set(key, (linkMap.get(key) ?? 0) + val);
+  }
+
+  const links: SankeyLink[] = Array.from(linkMap.entries())
+    .map(([key, value]) => {
+      const [source, target] = key.split('|||');
+      return { source, target, value };
+    })
+    .filter((l) => l.value > 0);
+
+  if (links.length === 0) return <div className="h-full flex items-center justify-center text-sm text-gray-400">No data — click to reconfigure</div>;
+
+  return (
+    <div ref={containerRef} className="w-full h-full overflow-hidden">
+      <DashSankeyChart
+        links={links}
+        title={config.title}
+        width={dims.w}
+        height={dims.h}
+        fontFamily={theme.fontFamily}
+        colors={paletteColors(theme.palette, theme.customColours)}
+      />
+    </div>
+  );
 }

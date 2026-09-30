@@ -61,7 +61,7 @@ export default function SnapshotHistoryPanel({ snapshots, onDelete, onClose }: S
                       type="button"
                       onClick={() => redownload(snap)}
                       title="Re-download snapshot"
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#005EB8] hover:bg-blue-50 transition-colors"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                     >
                       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
                         <path d="M8 2v8m0 0L5 7m3 3 3-3M2 13h12" strokeLinecap="round" strokeLinejoin="round" />

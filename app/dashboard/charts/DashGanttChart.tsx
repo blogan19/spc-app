@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -171,7 +171,7 @@ export default function DashGanttChart({
       .attr('transform', `translate(0,${innerH})`)
       .call(d3.axisBottom(x).ticks(Math.min(8, Math.floor(innerW / 80))).tickSizeOuter(0));
     xAxis.select('.domain').attr('stroke', '#d1d5db');
-    xAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    xAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     // Legend
     if (hasCategories) {
@@ -188,7 +188,7 @@ export default function DashGanttChart({
         g.append('text')
           .attr('x', lx + 14)
           .attr('y', legendY + 8)
-          .attr('font-size', 9)
+          .attr('font-size', 11)
           .attr('fill', '#6b7280')
           .text(cat);
         lx += cat.length * 6 + 28;

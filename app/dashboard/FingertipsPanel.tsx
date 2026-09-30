@@ -165,7 +165,7 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
             <div
               key={s}
               className={`flex-1 py-2 text-center text-xs font-medium border-b-2 transition-colors ${
-                step === s ? 'border-[#005EB8] text-[#005EB8]' : 'border-transparent text-gray-400'
+                step === s ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'
               }`}
             >
               {i + 1}. {s === 'search' ? 'Find indicator' : s === 'configure' ? 'Configure' : 'Preview & add'}
@@ -189,13 +189,13 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="e.g. diabetes, cancer screening, obesity…"
-                  className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#005EB8]"
+                  className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 <button
                   type="button"
                   onClick={handleSearch}
                   disabled={searching || !query.trim()}
-                  className="px-4 py-2 text-sm bg-[#005EB8] text-white rounded-lg font-medium disabled:opacity-40 hover:bg-[#003087] transition-colors"
+                  className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg font-medium disabled:opacity-40 hover:bg-indigo-700 transition-colors"
                 >
                   {searching ? '…' : 'Search'}
                 </button>
@@ -212,14 +212,14 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
                         key={ind.IndicatorId}
                         type="button"
                         onClick={() => handleSelectIndicator(ind)}
-                        className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors group"
+                        className="w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors group"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 group-hover:text-[#005EB8] leading-snug">{ind.IndicatorName}</p>
+                            <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-600 leading-snug">{ind.IndicatorName}</p>
                             <p className="text-xs text-gray-400 mt-0.5">ID: {ind.IndicatorId}</p>
                           </div>
-                          <span className="text-gray-300 group-hover:text-[#005EB8] text-sm flex-shrink-0">→</span>
+                          <span className="text-gray-300 group-hover:text-indigo-600 text-sm flex-shrink-0">→</span>
                         </div>
                       </button>
                     ))}
@@ -232,8 +232,8 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
           {/* Step 2: Configure */}
           {step === 'configure' && indicator && (
             <div className="space-y-5">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <p className="text-xs font-medium text-blue-700 uppercase tracking-wide mb-1">Selected indicator</p>
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                <p className="text-xs font-medium text-indigo-700 uppercase tracking-wide mb-1">Selected indicator</p>
                 <p className="text-sm font-semibold text-gray-800 leading-snug">{indicator.IndicatorName}</p>
                 <p className="text-xs text-gray-500 mt-1">ID: {indicator.IndicatorId}</p>
                 {indicator.Descriptive?.Definition && (
@@ -246,7 +246,7 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
                 <select
                   value={areaTypeId}
                   onChange={(e) => setAreaTypeId(Number(e.target.value))}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#005EB8]"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   {AREA_TYPE_OPTIONS.map((a) => (
                     <option key={a.Id} value={a.Id}>{a.Name}</option>
@@ -260,7 +260,7 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
                   type="checkbox"
                   checked={includeCount}
                   onChange={(e) => setIncludeCount(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 accent-[#005EB8]"
+                  className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
                 />
                 <span className="text-sm text-gray-700">Include count and denominator columns</span>
               </label>
@@ -271,7 +271,7 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
                 type="button"
                 onClick={handleFetch}
                 disabled={fetching}
-                className="w-full py-2.5 text-sm bg-[#005EB8] text-white rounded-xl font-medium disabled:opacity-40 hover:bg-[#003087] transition-colors"
+                className="w-full py-2.5 text-sm bg-indigo-600 text-white rounded-xl font-medium disabled:opacity-40 hover:bg-indigo-700 transition-colors"
               >
                 {fetching ? 'Fetching data…' : 'Fetch data →'}
               </button>
@@ -327,7 +327,7 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
                   type="text"
                   value={datasetName}
                   onChange={(e) => setDatasetName(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#005EB8]"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
@@ -348,7 +348,7 @@ export default function FingertipsPanel({ onAddDataset, onClose }: FingertipsPan
               type="button"
               onClick={handleAdd}
               disabled={!datasetName.trim()}
-              className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 transition-colors"
+              className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 transition-colors"
             >
               Add dataset
             </button>

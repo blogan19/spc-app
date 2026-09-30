@@ -70,7 +70,7 @@ export default function ExampleViewer({ example, onUse, onClose }: Props) {
           <button
             type="button"
             onClick={handleUse}
-            className="text-sm font-semibold px-4 py-1.5 rounded-lg bg-[#005EB8] text-white hover:bg-[#004da0] transition-colors"
+            className="text-sm font-semibold px-4 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
           >
             Use as starting point
           </button>
@@ -133,7 +133,7 @@ export default function ExampleViewer({ example, onUse, onClose }: Props) {
                       onClick={() => setExpandedGuide(isOpen ? null : item.chartName)}
                       className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-slate-50 transition-colors"
                     >
-                      <span className="w-5 h-5 flex-shrink-0 rounded-full bg-[#005EB8]/10 text-[#005EB8] text-[10px] font-bold flex items-center justify-center">
+                      <span className="w-5 h-5 flex-shrink-0 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold flex items-center justify-center">
                         {idx + 1}
                       </span>
                       <span className="flex-1 text-xs font-medium text-slate-700 leading-snug">
@@ -165,7 +165,7 @@ export default function ExampleViewer({ example, onUse, onClose }: Props) {
               <button
                 type="button"
                 onClick={handleUse}
-                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[#005EB8] text-white hover:bg-[#004da0] transition-colors"
+                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
               >
                 Use as starting point
               </button>

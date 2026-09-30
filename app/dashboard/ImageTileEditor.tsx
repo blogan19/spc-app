@@ -60,7 +60,7 @@ export default function ImageTileEditor({ initialConfig, onSave, onCancel }: Ima
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed border-gray-300 hover:border-[#005EB8] rounded-xl transition-colors"
+            className="border-2 border-dashed border-gray-300 hover:border-indigo-400 rounded-xl transition-colors"
           >
             {config.dataUrl ? (
               <div className="relative">
@@ -83,7 +83,7 @@ export default function ImageTileEditor({ initialConfig, onSave, onCancel }: Ima
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="w-full py-10 flex flex-col items-center gap-2 text-gray-400 hover:text-[#005EB8] transition-colors"
+                className="w-full py-10 flex flex-col items-center gap-2 text-gray-400 hover:text-indigo-600 transition-colors"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8">
                   <path strokeLinecap="round" strokeLinejoin="round"
@@ -110,7 +110,7 @@ export default function ImageTileEditor({ initialConfig, onSave, onCancel }: Ima
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="text-xs text-[#005EB8] hover:underline"
+              className="text-xs text-indigo-600 hover:underline"
             >
               Replace image
             </button>
@@ -127,7 +127,7 @@ export default function ImageTileEditor({ initialConfig, onSave, onCancel }: Ima
                   onClick={() => patch({ objectFit: fit })}
                   className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors capitalize ${
                     config.objectFit === fit
-                      ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
                       : 'border-gray-300 text-gray-600 hover:border-gray-400'
                   }`}
                 >
@@ -167,7 +167,7 @@ export default function ImageTileEditor({ initialConfig, onSave, onCancel }: Ima
             type="button"
             disabled={!config.dataUrl}
             onClick={() => onSave(config)}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {initialConfig ? 'Save changes' : 'Add to dashboard'}
           </button>

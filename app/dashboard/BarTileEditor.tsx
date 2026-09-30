@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { BarTileConfig, Dataset, DashboardTheme } from '@/lib/dashboard/types';
-import { paletteColors } from '@/lib/dashboard/seed';
+import { paletteColors, newId } from '@/lib/dashboard/seed';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
 import BarChart from './charts/BarChart';
 import TransformLogModal from './TransformLogModal';
 import ReferenceLinesPanel from './ReferenceLinesPanel';
@@ -15,6 +16,7 @@ interface BarTileEditorProps {
   initialThemeOverride?: Partial<DashboardTheme> | null;
   onSave: (config: BarTileConfig, themeOverride: Partial<DashboardTheme> | null) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
 
 function defaultConfig(datasets: Dataset[]): BarTileConfig {
@@ -38,6 +40,7 @@ export default function BarTileEditor({
   initialThemeOverride,
   onSave,
   onCancel,
+  onUpsertDataset,
 }: BarTileEditorProps) {
   const [config, setConfig] = useState<BarTileConfig>(
     initialConfig ?? defaultConfig(datasets),
@@ -49,6 +52,33 @@ export default function BarTileEditor({
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewSize, setPreviewSize] = useState({ w: 560, h: 320 });
   const [showLog, setShowLog] = useState(false);
+
+  const INLINE_PREFIX = '__inline_';
+  const INLINE_COLS: ColSpec[] = [
+    { key: 'category', label: 'Category', type: 'text' },
+    { key: 'value', label: 'Value', type: 'number' },
+  ];
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
+
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, xColumn: 'category', yColumn: 'value' }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
 
   useEffect(() => {
     const el = previewRef.current;
@@ -86,7 +116,9 @@ export default function BarTileEditor({
     }));
   };
 
-  const canSave = config.datasetId && config.xColumn && config.yColumn;
+  const canSave = dataSource === 'inline'
+    ? inlineRows.length > 0
+    : (config.datasetId && config.xColumn && config.yColumn);
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -100,28 +132,69 @@ export default function BarTileEditor({
         </div>
 
         <div className="flex-1 px-5 py-4 space-y-5">
-          {/* Dataset */}
+          {/* Data source */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Dataset</label>
-            {datasets.length === 0 ? (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2.5">
-                No datasets uploaded. Click &ldquo;Datasets&rdquo; in the toolbar first.
-              </p>
-            ) : (
-              <select
-                value={config.datasetId}
-                onChange={(e) => handleDatasetChange(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Data source</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+              <button
+                type="button"
+                onClick={() => setDataSource('dataset')}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
               >
-                <option value="">— choose dataset —</option>
-                {datasets.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+                Dataset
+              </button>
+              <button
+                type="button"
+                onClick={switchToInline}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Enter data
+              </button>
+            </div>
+
+            {dataSource === 'dataset' ? (
+              datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                  <button
+                    type="button"
+                    onClick={switchToInline}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Enter data manually →
+                  </button>
+                  <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                </div>
+              ) : (
+                <select
+                  value={config.datasetId}
+                  onChange={(e) => handleDatasetChange(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">— choose dataset —</option>
+                  {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )
+            ) : (
+              <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
             )}
           </div>
 
-          {dataset && (
+          {/* Chart title */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Chart title</label>
+            <input
+              type="text"
+              value={config.title}
+              onChange={(e) => set('title', e.target.value)}
+              placeholder="Optional"
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          {dataSource === 'dataset' && dataset && (
             <>
               {/* X column */}
               <div>
@@ -131,7 +204,7 @@ export default function BarTileEditor({
                 <select
                   value={config.xColumn}
                   onChange={(e) => set('xColumn', e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">— choose column —</option>
                   {textCols.map((c) => (
@@ -148,7 +221,7 @@ export default function BarTileEditor({
                 <select
                   value={config.yColumn}
                   onChange={(e) => set('yColumn', e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">— choose column —</option>
                   {numCols.map((c) => (
@@ -164,7 +237,7 @@ export default function BarTileEditor({
                   <select
                     value={config.dateGrouping ?? 'none'}
                     onChange={(e) => set('dateGrouping', e.target.value as DateGrouping)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     {(Object.entries(DATE_GROUPING_LABELS) as [DateGrouping, string][]).map(([k, label]) => (
                       <option key={k} value={k}>{label}</option>
@@ -173,72 +246,72 @@ export default function BarTileEditor({
                   <p className="text-xs text-gray-400 mt-0.5">FY grouping uses April start by default — change in Theme settings.</p>
                 </div>
               )}
-
-              {/* Orientation */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Orientation</label>
-                <div className="flex gap-2">
-                  {(['vertical', 'horizontal'] as const).map((o) => (
-                    <button
-                      key={o}
-                      type="button"
-                      onClick={() => set('orientation', o)}
-                      className={`flex-1 text-sm py-1.5 rounded-lg border transition-colors ${
-                        config.orientation === o
-                          ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium'
-                          : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {o.charAt(0).toUpperCase() + o.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Colour */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-gray-700">Bar colour</label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <span className="text-xs text-gray-500">Use theme</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={useTheme}
-                      onClick={() => setUseTheme((v) => !v)}
-                      className={`relative w-8 h-4 rounded-full transition-colors ${
-                        useTheme ? 'bg-[#005EB8]' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
-                          useTheme ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </label>
-                </div>
-                {useTheme ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                    {paletteColors(theme.palette, theme.customColours).slice(0, 5).map((c) => (
-                      <span key={c} className="w-5 h-5 rounded" style={{ backgroundColor: c }} />
-                    ))}
-                    <span className="text-xs text-gray-400 ml-1">Dashboard palette</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={config.color}
-                      onChange={(e) => set('color', e.target.value)}
-                      className="w-9 h-9 rounded border border-gray-200 cursor-pointer p-0.5"
-                    />
-                    <span className="text-xs text-gray-500 font-mono">{config.color}</span>
-                  </div>
-                )}
-              </div>
             </>
           )}
+
+          {/* Orientation */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Orientation</label>
+            <div className="flex gap-2">
+              {(['vertical', 'horizontal'] as const).map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => set('orientation', o)}
+                  className={`flex-1 text-sm py-1.5 rounded-lg border transition-colors ${
+                    config.orientation === o
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {o.charAt(0).toUpperCase() + o.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Colour */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-gray-700">Bar colour</label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <span className="text-xs text-gray-500">Use theme</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={useTheme}
+                  onClick={() => setUseTheme((v) => !v)}
+                  className={`relative w-8 h-4 rounded-full transition-colors ${
+                    useTheme ? 'bg-indigo-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
+                      useTheme ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </label>
+            </div>
+            {useTheme ? (
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                {paletteColors(theme.palette, theme.customColours).slice(0, 5).map((c) => (
+                  <span key={c} className="w-5 h-5 rounded" style={{ backgroundColor: c }} />
+                ))}
+                <span className="text-xs text-gray-400 ml-1">Dashboard palette</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={config.color}
+                  onChange={(e) => set('color', e.target.value)}
+                  className="w-9 h-9 rounded border border-gray-200 cursor-pointer p-0.5"
+                />
+                <span className="text-xs text-gray-500 font-mono">{config.color}</span>
+              </div>
+            )}
+          </div>
 
           <hr className="border-gray-100" />
 
@@ -250,17 +323,7 @@ export default function BarTileEditor({
 
           <hr className="border-gray-100" />
 
-          {/* Labels */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Chart title</label>
-            <input
-              type="text"
-              value={config.title}
-              onChange={(e) => set('title', e.target.value)}
-              placeholder="Optional"
-              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+          {/* Axis labels */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">X-axis label</label>
@@ -269,7 +332,7 @@ export default function BarTileEditor({
                 value={config.xLabel}
                 onChange={(e) => set('xLabel', e.target.value)}
                 placeholder="Optional"
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
@@ -279,7 +342,7 @@ export default function BarTileEditor({
                 value={config.yLabel}
                 onChange={(e) => set('yLabel', e.target.value)}
                 placeholder="Optional"
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -298,7 +361,7 @@ export default function BarTileEditor({
             type="button"
             disabled={!canSave}
             onClick={() => onSave(config, useTheme ? null : {})}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {initialConfig ? 'Save changes' : 'Add to dashboard'}
           </button>
@@ -313,7 +376,7 @@ export default function BarTileEditor({
             <button
               type="button"
               onClick={() => setShowLog(true)}
-              className="flex items-center gap-1 text-xs text-[#005EB8] hover:underline"
+              className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -52,7 +52,7 @@ export default function BarChart({
     if (!rows.length) return;
 
     const marginTop = title ? 32 : 16;
-    const marginBottom = orientation === 'vertical' ? 60 : 40;
+    const marginBottom = orientation === 'vertical' ? 72 : 40;
     const marginLeft = orientation === 'vertical' ? 48 : 120;
     const marginRight = 16;
 
@@ -145,15 +145,18 @@ export default function BarChart({
           .text(rl.label);
       });
 
-      // X axis
+      // X axis — dynamic tick reduction to prevent label overlap
+      const domain = x.domain();
+      const maxLabels = Math.max(1, Math.floor(innerW / 64));
+      const every = Math.max(1, Math.ceil(domain.length / maxLabels));
       const xAxis = g
         .append('g')
         .attr('transform', `translate(0,${innerH})`)
-        .call(d3.axisBottom(x).tickSizeOuter(0));
+        .call(d3.axisBottom(x).tickSizeOuter(0).tickValues(domain.filter((_, i) => i % every === 0)));
       xAxis.select('.domain').attr('stroke', '#d1d5db');
       xAxis
         .selectAll('text')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .attr('transform', 'rotate(-35)')
         .attr('text-anchor', 'end')
@@ -163,7 +166,7 @@ export default function BarChart({
       // Y axis
       const yAxis = g.append('g').call(d3.axisLeft(y).ticks(5));
       yAxis.select('.domain').attr('stroke', '#d1d5db');
-      yAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+      yAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
       // Labels
       if (xLabel) {
@@ -171,7 +174,7 @@ export default function BarChart({
           .attr('x', innerW / 2)
           .attr('y', innerH + marginBottom - 6)
           .attr('text-anchor', 'middle')
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#9ca3af')
           .text(xLabel);
       }
@@ -181,7 +184,7 @@ export default function BarChart({
           .attr('x', -innerH / 2)
           .attr('y', -marginLeft + 14)
           .attr('text-anchor', 'middle')
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#9ca3af')
           .text(yLabel);
       }
@@ -227,7 +230,7 @@ export default function BarChart({
       // Y axis (categories)
       const yAxis = g.append('g').call(d3.axisLeft(y).tickSizeOuter(0));
       yAxis.select('.domain').attr('stroke', '#d1d5db');
-      yAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+      yAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
       // X axis (values)
       const xAxis = g
@@ -235,7 +238,7 @@ export default function BarChart({
         .attr('transform', `translate(0,${innerH})`)
         .call(d3.axisBottom(x).ticks(5));
       xAxis.select('.domain').attr('stroke', '#d1d5db');
-      xAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+      xAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
       // Labels
       if (xLabel) {
@@ -243,7 +246,7 @@ export default function BarChart({
           .attr('x', innerW / 2)
           .attr('y', innerH + marginBottom - 6)
           .attr('text-anchor', 'middle')
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#9ca3af')
           .text(xLabel);
       }
@@ -253,7 +256,7 @@ export default function BarChart({
           .attr('x', -innerH / 2)
           .attr('y', -marginLeft + 14)
           .attr('text-anchor', 'middle')
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#9ca3af')
           .text(yLabel);
       }

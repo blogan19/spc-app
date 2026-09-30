@@ -20,6 +20,8 @@ interface DashHeatmapChartProps {
   width: number;
   height: number;
   fontFamily: string;
+  domainMin?: number;   // optional fixed scale minimum
+  domainMax?: number;   // optional fixed scale maximum
 }
 
 const SCHEMES: Record<HeatmapColorScheme, d3.ScaleSequential<string>> = {
@@ -39,6 +41,8 @@ export default function DashHeatmapChart({
   width,
   height,
   fontFamily,
+  domainMin,
+  domainMax,
 }: DashHeatmapChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -58,15 +62,17 @@ export default function DashHeatmapChart({
     const innerW = Math.max(0, width - ml - mr);
     const innerH = Math.max(0, height - mt - mb);
 
-    // Value extent
+    // Value extent — use fixed domain when provided, otherwise auto-range
     const vals = data.map((d) => d.value);
     const [vMin, vMax] = d3.extent(vals) as [number, number];
+    const scaleMin = domainMin ?? vMin;
+    const scaleMax = domainMax ?? vMax;
 
     const colorScale = SCHEMES[colorScheme].copy();
     if (colorScheme === 'diverging') {
-      colorScale.domain([vMax, vMin]); // red = high, blue = low for diverging
+      colorScale.domain([scaleMax, scaleMin]);
     } else {
-      colorScale.domain([vMin, vMax]);
+      colorScale.domain([scaleMin, scaleMax]);
     }
 
     const xScale = d3.scaleBand().domain(colOrder).range([0, innerW]).padding(0.05);
@@ -146,7 +152,7 @@ export default function DashHeatmapChart({
       .append('g')
       .attr('transform', `translate(0,${innerH})`)
       .call(d3.axisBottom(xScale).tickSize(0))
-      .attr('font-size', 9)
+      .attr('font-size', 11)
       .call((ax) => ax.select('.domain').attr('stroke', '#e5e7eb'));
 
     if (rotateCols) {
@@ -169,7 +175,7 @@ export default function DashHeatmapChart({
     // Y axis (row labels)
     g.append('g')
       .call(d3.axisLeft(yScale).tickSize(0))
-      .attr('font-size', 9)
+      .attr('font-size', 11)
       .call((ax) => ax.select('.domain').attr('stroke', '#e5e7eb'))
       .selectAll('.tick text')
       .attr('dx', '-4')
@@ -209,8 +215,8 @@ export default function DashHeatmapChart({
       const stops = d3.range(0, 1.01, 0.1);
       stops.forEach((t) => {
         const val = colorScheme === 'diverging'
-          ? vMax + t * (vMin - vMax)
-          : vMin + t * (vMax - vMin);
+          ? scaleMax + t * (scaleMin - scaleMax)
+          : scaleMin + t * (scaleMax - scaleMin);
         grad.append('stop').attr('offset', `${t * 100}%`).attr('stop-color', colorScale(val));
       });
 
@@ -224,11 +230,11 @@ export default function DashHeatmapChart({
         Math.abs(v) >= 1000 ? d3.format('.2s')(v) : d3.format('.3~g')(v);
 
       svg.append('text').attr('x', legendX).attr('y', legendY - 2)
-        .attr('font-size', 8).attr('fill', '#9ca3af').attr('text-anchor', 'start').text(fmt(vMin));
+        .attr('font-size', 8).attr('fill', '#9ca3af').attr('text-anchor', 'start').text(fmt(scaleMin));
       svg.append('text').attr('x', legendX + legendW).attr('y', legendY - 2)
-        .attr('font-size', 8).attr('fill', '#9ca3af').attr('text-anchor', 'end').text(fmt(vMax));
+        .attr('font-size', 8).attr('fill', '#9ca3af').attr('text-anchor', 'end').text(fmt(scaleMax));
     }
-  }, [data, rowOrder, colOrder, title, colorScheme, showValues, width, height, fontFamily]);
+  }, [data, rowOrder, colOrder, title, colorScheme, showValues, width, height, fontFamily, domainMin, domainMax]);
 
   return <svg ref={svgRef} />;
 }

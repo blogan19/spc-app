@@ -43,6 +43,7 @@ export default function PiiOnboarding({ onConfirm, onCancel }: PiiOnboardingProp
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-start gap-3">
@@ -76,7 +77,7 @@ export default function PiiOnboarding({ onConfirm, onCancel }: PiiOnboardingProp
                     type="checkbox"
                     checked={!!checked[label]}
                     onChange={() => toggle(label)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#005EB8] focus:ring-[#005EB8] flex-shrink-0 cursor-pointer"
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0 cursor-pointer"
                   />
                   <span className={`text-sm leading-relaxed transition-colors ${
                     checked[label] ? 'text-gray-700' : 'text-gray-900'
@@ -142,7 +143,7 @@ export default function PiiOnboarding({ onConfirm, onCancel }: PiiOnboardingProp
             type="button"
             disabled={!allChecked}
             onClick={handleConfirm}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium transition-colors
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors
                        disabled:opacity-40 disabled:cursor-not-allowed"
           >
             I understand — continue to upload

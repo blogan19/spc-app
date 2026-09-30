@@ -142,19 +142,19 @@ export default function DashPyramidChart({
     const xAxisLeft = g.append('g').attr('transform', `translate(${leftOrigin},${innerH})`)
       .call(d3.axisBottom(xLeft).ticks(4).tickFormat(fmtTick).tickSizeOuter(0));
     xAxisLeft.select('.domain').attr('stroke', '#d1d5db');
-    xAxisLeft.selectAll('text').attr('font-size', 9).attr('fill', '#6b7280');
+    xAxisLeft.selectAll('text').attr('font-size', 11).attr('fill', '#6b7280');
 
     const xAxisRight = g.append('g').attr('transform', `translate(${rightOrigin},${innerH})`)
       .call(d3.axisBottom(xRight).ticks(4).tickFormat(fmtTick).tickSizeOuter(0));
     xAxisRight.select('.domain').attr('stroke', '#d1d5db');
-    xAxisRight.selectAll('text').attr('font-size', 9).attr('fill', '#6b7280');
+    xAxisRight.selectAll('text').attr('font-size', 11).attr('fill', '#6b7280');
 
     // Legend
     const legendY = innerH + mb - 12;
     let lx = 0;
     [{ label: 'Male', color: maleColor }, { label: 'Female', color: femaleColor }].forEach((item) => {
       g.append('rect').attr('x', lx).attr('y', legendY).attr('width', 10).attr('height', 10).attr('rx', 2).attr('fill', item.color);
-      g.append('text').attr('x', lx + 14).attr('y', legendY + 8).attr('font-size', 9).attr('fill', '#6b7280').text(item.label);
+      g.append('text').attr('x', lx + 14).attr('y', legendY + 8).attr('font-size', 11).attr('fill', '#6b7280').text(item.label);
       lx += 60;
     });
   }, [rows, title, asPercentage, maleColor, femaleColor, width, height, fontFamily, showGridLines]);

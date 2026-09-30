@@ -62,7 +62,7 @@ export default function ThemePanel({ theme, onChange, onClose }: ThemePanelProps
                 onClick={() => set({ palette: p.value })}
                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${
                   theme.palette === p.value
-                    ? 'border-[#005EB8] bg-blue-50'
+                    ? 'border-indigo-500 bg-indigo-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -77,13 +77,13 @@ export default function ThemePanel({ theme, onChange, onClose }: ThemePanelProps
                 </div>
                 <span
                   className={`text-xs font-medium ${
-                    theme.palette === p.value ? 'text-[#005EB8]' : 'text-gray-700'
+                    theme.palette === p.value ? 'text-indigo-600' : 'text-gray-700'
                   }`}
                 >
                   {p.label}
                 </span>
                 {theme.palette === p.value && (
-                  <span className="ml-auto text-[#005EB8] text-xs">✓</span>
+                  <span className="ml-auto text-indigo-600 text-xs">✓</span>
                 )}
               </button>
             ))}
@@ -103,7 +103,7 @@ export default function ThemePanel({ theme, onChange, onClose }: ThemePanelProps
                 onClick={() => set({ background: b.value })}
                 className={`py-2 rounded-lg border text-xs font-medium transition-all ${
                   theme.background === b.value
-                    ? 'border-[#005EB8] bg-blue-50 text-[#005EB8]'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-600'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
@@ -141,7 +141,7 @@ export default function ThemePanel({ theme, onChange, onClose }: ThemePanelProps
                 onClick={() => set({ borderRadius: r.value })}
                 className={`py-2 rounded-lg border text-xs font-medium transition-all ${
                   theme.borderRadius === r.value
-                    ? 'border-[#005EB8] bg-blue-50 text-[#005EB8]'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-600'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
@@ -163,7 +163,7 @@ export default function ThemePanel({ theme, onChange, onClose }: ThemePanelProps
               aria-checked={theme.tileBorder}
               onClick={() => set({ tileBorder: !theme.tileBorder })}
               className={`relative w-10 h-5 rounded-full transition-colors ${
-                theme.tileBorder ? 'bg-[#005EB8]' : 'bg-gray-300'
+                theme.tileBorder ? 'bg-indigo-600' : 'bg-gray-300'
               }`}
             >
               <span
@@ -187,7 +187,7 @@ export default function ThemePanel({ theme, onChange, onClose }: ThemePanelProps
               aria-checked={theme.gridLines}
               onClick={() => set({ gridLines: !theme.gridLines })}
               className={`relative w-10 h-5 rounded-full transition-colors ${
-                theme.gridLines ? 'bg-[#005EB8]' : 'bg-gray-300'
+                theme.gridLines ? 'bg-indigo-600' : 'bg-gray-300'
               }`}
             >
               <span

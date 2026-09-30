@@ -9,11 +9,15 @@ export async function compressState(state: DashboardState): Promise<string> {
   writer.close();
   const buf = await new Response(cs.readable).arrayBuffer();
   const binary = Array.from(new Uint8Array(buf));
-  return btoa(binary.map((b) => String.fromCharCode(b)).join(''));
+  // URL-safe base64: replace chars unsafe in query params
+  return btoa(binary.map((b) => String.fromCharCode(b)).join(''))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 export async function decompressState(b64: string): Promise<DashboardState> {
-  const binary = atob(b64);
+  // Restore standard base64 from URL-safe encoding
+  const padded = b64.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(padded);
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
   const ds = new DecompressionStream('gzip');
   const writer = ds.writable.getWriter();

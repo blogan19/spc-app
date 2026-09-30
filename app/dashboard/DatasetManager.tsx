@@ -10,6 +10,7 @@ import { lastRefreshedAt, PERIOD_FORMATS } from '@/lib/dashboard/refresh';
 import TransformLogModal from './TransformLogModal';
 import AddPeriodModal, { type RefreshTarget } from './AddPeriodModal';
 import PasteDataModal from './PasteDataModal';
+import CreateDatasetModal from './CreateDatasetModal';
 import FingertipsPanel from './FingertipsPanel';
 
 interface DatasetManagerProps {
@@ -264,6 +265,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
   const [logDataset, setLogDataset] = useState<Dataset | null>(null);
   const [refreshTarget, setRefreshTarget] = useState<RefreshTarget | null>(null);
   const [showPaste, setShowPaste] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [showFingertips, setShowFingertips] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -282,6 +284,17 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
         return { ...d, refreshConfig: { ...base, ...patch } };
       }),
     );
+  };
+
+  const handleCreateConfirm = (name: string, headers: string[], rows: Record<string, string>[]) => {
+    const dataset = buildDataset(name, name, 'Manual', headers, rows);
+    const flags = detectPii(dataset);
+    if (flags.length > 0) {
+      setPiiWarning({ dataset, flags });
+    } else {
+      onChange([...datasets, dataset]);
+    }
+    setShowCreate(false);
   };
 
   const handlePasteConfirm = (name: string, headers: string[], rows: Record<string, string>[]) => {
@@ -390,6 +403,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Datasets</h2>
           <button
@@ -427,7 +441,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
                     <button
                       type="button"
                       onClick={() => startRename(ds)}
-                      className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors text-left truncate w-full"
+                      className="text-sm font-semibold text-gray-900 hover:text-indigo-600 transition-colors text-left truncate w-full"
                       title="Click to rename"
                     >
                       {ds.name}
@@ -447,7 +461,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
                       <button
                         type="button"
                         onClick={() => setLogDataset(ds)}
-                        className="text-[#005EB8] hover:underline flex items-center gap-0.5"
+                        className="text-indigo-600 hover:underline flex items-center gap-0.5"
                         title="View transformation log"
                       >
                         <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
@@ -481,7 +495,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
                       <button
                         type="button"
                         onClick={() => updateRefreshConfig(ds.id, { enabled: true })}
-                        className="text-xs text-gray-400 hover:text-[#005EB8] transition-colors"
+                        className="text-xs text-gray-400 hover:text-indigo-600 transition-colors"
                       >
                         + Enable monthly refresh
                       </button>
@@ -558,7 +572,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
                                       key={c.name}
                                       className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border cursor-pointer transition-colors ${
                                         checked
-                                          ? 'border-[#005EB8] bg-blue-50 text-[#005EB8]'
+                                          ? 'border-indigo-500 bg-indigo-50 text-indigo-600'
                                           : 'border-gray-300 text-gray-600 hover:border-gray-400'
                                       }`}
                                     >
@@ -629,23 +643,32 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={loading}
-            className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 text-sm text-gray-600 hover:text-blue-600 transition-all disabled:opacity-50"
+            className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-indigo-50 text-sm text-gray-600 hover:text-indigo-600 transition-all disabled:opacity-50"
           >
             {loading ? 'Uploading…' : '+ Upload file (CSV, Excel, JSON, ODS, XML)'}
           </button>
-          <button
-            type="button"
-            onClick={() => setShowPaste(true)}
-            className="w-full mt-2 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-[#005EB8] hover:border-[#005EB8] hover:bg-blue-50/40 transition-all"
-          >
-            Paste data from clipboard or spreadsheet
-          </button>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/40 transition-all"
+            >
+              Create dataset manually
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPaste(true)}
+              className="py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/40 transition-all"
+            >
+              Paste from clipboard
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setShowFingertips(true)}
-            className="w-full mt-2 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-[#005EB8] hover:border-[#005EB8] hover:bg-blue-50/40 transition-all flex items-center justify-center gap-2"
+            className="w-full mt-2 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/40 transition-all flex items-center justify-center gap-2"
           >
-            <span className="inline-block w-4 h-4 rounded-sm bg-[#005EB8] text-white text-[9px] font-bold leading-4 text-center flex-shrink-0">NHS</span>
+            <span className="inline-block w-4 h-4 rounded-sm bg-indigo-600 text-white text-[9px] font-bold leading-4 text-center flex-shrink-0">NHS</span>
             From NHS Fingertips
           </button>
           <p className="text-xs text-gray-400 text-center mt-2">
@@ -671,6 +694,14 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
         />
       )}
 
+      {/* Create dataset modal */}
+      {showCreate && (
+        <CreateDatasetModal
+          onConfirm={handleCreateConfirm}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
+
       {/* Paste data modal */}
       {showPaste && (
         <PasteDataModal
@@ -691,6 +722,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
       {piiWarning && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center p-4 z-10">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
             <div className="flex items-start gap-3 mb-4">
               <span className="text-2xl">⚠️</span>
               <div>
@@ -716,7 +748,7 @@ export default function DatasetManager({ datasets, onChange, onClose }: DatasetM
               <button
                 type="button"
                 onClick={() => confirmPii('remove')}
-                className="w-full py-2 rounded-lg bg-[#005EB8] text-white text-sm font-medium hover:bg-[#003087]"
+                className="w-full py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
               >
                 Remove flagged columns and continue
               </button>

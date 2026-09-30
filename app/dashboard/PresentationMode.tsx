@@ -83,7 +83,7 @@ function StoryEditor({
               <select
                 value={step.focusTileId}
                 onChange={(e) => setStep(step.id, { focusTileId: e.target.value })}
-                className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#005EB8]"
+                className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {tiles.map((t, ti) => (
                   <option key={t.id} value={t.id}>
@@ -106,7 +106,7 @@ function StoryEditor({
               onChange={(e) => setStep(step.id, { commentary: e.target.value })}
               placeholder="Commentary for this step (shown during presentation)…"
               rows={2}
-              className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-[#005EB8] text-slate-700 placeholder:text-slate-300"
+              className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 placeholder:text-slate-300"
             />
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-400">Auto-advance after</label>
@@ -115,7 +115,7 @@ function StoryEditor({
                 min={0}
                 value={step.duration}
                 onChange={(e) => setStep(step.id, { duration: Math.max(0, Number(e.target.value)) })}
-                className="w-16 text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#005EB8]"
+                className="w-16 text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <span className="text-xs text-slate-400">s (0 = manual)</span>
             </div>
@@ -123,7 +123,7 @@ function StoryEditor({
         ))}
 
         <button type="button" onClick={addStep}
-          className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:border-[#005EB8] hover:text-[#005EB8] text-xs font-medium transition-colors">
+          className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 text-xs font-medium transition-colors">
           + Add step
         </button>
       </div>
@@ -353,7 +353,7 @@ export default function PresentationMode({ state, onSaveStories, onClose }: Pres
                     onClick={() => setSelectedId(s.id)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                       s.id === selectedId
-                        ? 'bg-[#005EB8] text-white'
+                        ? 'bg-indigo-600 text-white'
                         : 'text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -377,7 +377,7 @@ export default function PresentationMode({ state, onSaveStories, onClose }: Pres
             </div>
             <div className="p-3 border-t border-slate-200">
               <button type="button" onClick={addStory}
-                className="w-full text-xs py-2 rounded-lg border border-dashed border-slate-300 text-slate-500 hover:border-[#005EB8] hover:text-[#005EB8] transition-colors">
+                className="w-full text-xs py-2 rounded-lg border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
                 + New presentation
               </button>
             </div>
@@ -419,7 +419,7 @@ export default function PresentationMode({ state, onSaveStories, onClose }: Pres
               ▶ Present
             </button>
             <button type="button" onClick={save}
-              className="text-sm px-5 py-2 rounded-xl bg-[#005EB8] text-white font-medium hover:bg-[#003087] transition-colors">
+              className="text-sm px-5 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
               Save &amp; close
             </button>
           </div>

@@ -12,18 +12,25 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.3",
+    "@prisma/client": "^5.22.0",
+    "@types/d3-sankey": "^0.12.5",
     "@types/papaparse": "^5.5.2",
     "d3": "^7.9.0",
+    "d3-sankey": "^0.12.3",
     "d3-svg-annotation": "^2.5.1",
     "jspdf": "^4.2.1",
     "lz-string": "^1.5.0",
     "next": "14.2.13",
+    "next-auth": "^5.0.0-beta.32",
     "papaparse": "^5.5.3",
     "pptxgenjs": "^4.0.1",
+    "prisma": "^5.22.0",
     "react": "^18",
     "react-annotation": "^2.2.1",
     "react-dom": "^18",
     "react-grid-layout": "^2.2.3",
+    "resend": "^6.18.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

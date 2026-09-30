@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { GanttTileConfig, Dataset } from '@/lib/dashboard/types';
-import { paletteColors } from '@/lib/dashboard/seed';
+import { paletteColors, newId } from '@/lib/dashboard/seed';
 import type { DashboardTheme } from '@/lib/dashboard/types';
 import DashGanttChart, { type GanttTask } from './charts/DashGanttChart';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
 
 interface GanttTileEditorProps {
   datasets: Dataset[];
@@ -12,6 +13,7 @@ interface GanttTileEditorProps {
   initialConfig?: GanttTileConfig;
   onSave: (config: GanttTileConfig) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
 
 function defaultConfig(datasets: Dataset[]): GanttTileConfig {
@@ -39,10 +41,40 @@ export default function GanttTileEditor({
   initialConfig,
   onSave,
   onCancel,
+  onUpsertDataset,
 }: GanttTileEditorProps) {
   const [config, setConfig] = useState<GanttTileConfig>(initialConfig ?? defaultConfig(datasets));
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewSize, setPreviewSize] = useState({ w: 560, h: 360 });
+
+  const INLINE_PREFIX = '__inline_';
+  const INLINE_COLS: ColSpec[] = [
+    { key: 'task', label: 'Task', type: 'text' },
+    { key: 'start', label: 'Start date', type: 'date' },
+    { key: 'end', label: 'End date', type: 'date' },
+  ];
+
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
+
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, labelColumn: 'task', startColumn: 'start', endColumn: 'end' }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
 
   useEffect(() => {
     const el = previewRef.current;
@@ -101,9 +133,11 @@ export default function GanttTileEditor({
   const categories = config.colorColumn ? Array.from(catSet) : [];
   const palette = config.colors.length > 0 ? config.colors : paletteColors(theme.palette, theme.customColours);
 
-  const canSave = config.datasetId && config.labelColumn && config.startColumn && config.endColumn;
+  const canSave = dataSource === 'inline'
+    ? inlineRows.length > 0
+    : !!(config.datasetId && config.labelColumn && config.startColumn && config.endColumn);
 
-  const selectClass = 'w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#005EB8] bg-white';
+  const selectClass = 'w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white';
   const labelClass = 'block text-xs font-medium text-gray-700 mb-1';
 
   return (
@@ -116,19 +150,58 @@ export default function GanttTileEditor({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Dataset */}
+          {/* Data source */}
           <div>
-            <label className={labelClass}>Dataset</label>
-            {datasets.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No datasets uploaded yet. Open Datasets to add one.</p>
+            <label className={labelClass}>Data source</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+              <button type="button" onClick={() => setDataSource('dataset')}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Dataset
+              </button>
+              <button type="button" onClick={switchToInline}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Enter data
+              </button>
+            </div>
+            {dataSource === 'dataset' ? (
+              datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                  <button
+                    type="button"
+                    onClick={switchToInline}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Enter data manually →
+                  </button>
+                  <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                </div>
+              ) : (
+                <select className={selectClass} value={config.datasetId} onChange={(e) => handleDatasetChange(e.target.value)}>
+                  <option value="">— choose dataset —</option>
+                  {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )
             ) : (
-              <select className={selectClass} value={config.datasetId} onChange={(e) => handleDatasetChange(e.target.value)}>
-                {datasets.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
             )}
           </div>
 
-          {dataset && (
+          {/* Chart title */}
+          <div>
+            <label className={labelClass}>Chart title</label>
+            <input
+              type="text"
+              className={selectClass}
+              value={config.title}
+              onChange={(e) => set('title', e.target.value)}
+              placeholder="e.g. Improvement Programme Timeline"
+            />
+          </div>
+
+          {dataSource === 'dataset' && dataset && (
             <>
               <div>
                 <label className={labelClass}>Task / label column</label>
@@ -174,17 +247,6 @@ export default function GanttTileEditor({
 
           <hr className="border-gray-100" />
 
-          <div>
-            <label className={labelClass}>Chart title</label>
-            <input
-              type="text"
-              className={selectClass}
-              value={config.title}
-              onChange={(e) => set('title', e.target.value)}
-              placeholder="e.g. Improvement Programme Timeline"
-            />
-          </div>
-
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-700">Show today line</p>
@@ -193,7 +255,7 @@ export default function GanttTileEditor({
             <button
               type="button"
               onClick={() => set('showToday', !config.showToday)}
-              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${config.showToday ? 'bg-[#005EB8]' : 'bg-gray-200'}`}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${config.showToday ? 'bg-indigo-600' : 'bg-gray-200'}`}
               role="switch"
               aria-checked={config.showToday}
             >
@@ -214,7 +276,7 @@ export default function GanttTileEditor({
             type="button"
             onClick={() => canSave && onSave(config)}
             disabled={!canSave}
-            className="flex-1 px-4 py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Add to dashboard
           </button>

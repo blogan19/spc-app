@@ -18,6 +18,7 @@ export default function TextTileEditor({ initialConfig, onSave, onCancel }: Text
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             {isNew ? 'Add text block' : 'Edit text block'}
@@ -69,7 +70,7 @@ export default function TextTileEditor({ initialConfig, onSave, onCancel }: Text
             type="button"
             onClick={() => onSave({ title: title.trim(), content: content.trim() })}
             disabled={!content.trim()}
-            className="px-4 py-2 rounded-lg bg-[#005EB8] hover:bg-[#003087] text-white text-sm font-medium
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium
                        disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isNew ? 'Add to dashboard' : 'Save changes'}

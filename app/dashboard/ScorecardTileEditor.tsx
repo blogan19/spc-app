@@ -4,13 +4,24 @@ import { useState, useEffect, useRef } from 'react';
 import type { ScorecardTileConfig, ScorecardRowConfig, Dataset } from '@/lib/dashboard/types';
 import DashScorecardChart from './charts/DashScorecardChart';
 import TransformLogModal from './TransformLogModal';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
+import { newId } from '@/lib/dashboard/seed';
 
 interface ScorecardTileEditorProps {
   datasets: Dataset[];
   initialConfig?: ScorecardTileConfig;
   onSave: (config: ScorecardTileConfig) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
+
+const INLINE_PREFIX = '__inline_';
+const INLINE_COLS: ColSpec[] = [
+  { key: 'metric', label: 'Metric', type: 'text' },
+  { key: 'period_1', label: 'Period 1', type: 'number' },
+  { key: 'period_2', label: 'Period 2', type: 'number' },
+  { key: 'period_3', label: 'Period 3', type: 'number' },
+];
 
 function defaultRowConfig(label: string): ScorecardRowConfig {
   return { label, unit: '', higherIsBetter: true, greenThreshold: 95, amberThreshold: 85, decimalPlaces: 1 };
@@ -20,10 +31,20 @@ function defaultConfig(datasets: Dataset[]): ScorecardTileConfig {
   return { datasetId: datasets[0]?.id ?? '', labelColumn: '', periodColumns: [], title: '', showTrend: true, rowConfigs: [] };
 }
 
-export default function ScorecardTileEditor({ datasets, initialConfig, onSave, onCancel }: ScorecardTileEditorProps) {
+export default function ScorecardTileEditor({ datasets, initialConfig, onSave, onCancel, onUpsertDataset }: ScorecardTileEditorProps) {
   const [config, setConfig] = useState<ScorecardTileConfig>(initialConfig ?? defaultConfig(datasets));
   const [showLog, setShowLog] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
 
   const set = <K extends keyof ScorecardTileConfig>(k: K, v: ScorecardTileConfig[K]) =>
     setConfig((c) => ({ ...c, [k]: v }));
@@ -65,6 +86,18 @@ export default function ScorecardTileEditor({ datasets, initialConfig, onSave, o
     }));
   };
 
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, labelColumn: 'metric', periodColumns: ['period_1', 'period_2', 'period_3'] }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
+
   const togglePeriodCol = (name: string) =>
     setConfig((c) => ({
       ...c,
@@ -79,7 +112,9 @@ export default function ScorecardTileEditor({ datasets, initialConfig, onSave, o
       rowConfigs: c.rowConfigs.map((r) => (r.label === label ? { ...r, ...patch } : r)),
     }));
 
-  const canSave = !!config.datasetId && !!config.labelColumn && config.periodColumns.length > 0;
+  const canSave = dataSource === 'inline'
+    ? inlineRows.length > 0
+    : !!config.datasetId && !!config.labelColumn && config.periodColumns.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch">
@@ -93,168 +128,193 @@ export default function ScorecardTileEditor({ datasets, initialConfig, onSave, o
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {datasets.length === 0 ? (
-            <p className="text-sm text-gray-500 bg-gray-50 rounded-xl p-4 text-center">
-              No datasets uploaded yet. Close this editor and add data via &ldquo;Datasets&rdquo;.
-            </p>
-          ) : (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Dataset</label>
-                <select
-                  value={config.datasetId}
-                  onChange={(e) => handleDatasetChange(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">Select dataset…</option>
-                  {datasets.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-                {dataset && (
-                  <button type="button" onClick={() => setShowLog(true)} className="text-xs text-[#005EB8] hover:underline mt-1">
-                    View transformations
+          {/* Data source */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Data source</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+              <button type="button" onClick={() => setDataSource('dataset')}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Dataset
+              </button>
+              <button type="button" onClick={switchToInline}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Enter data
+              </button>
+            </div>
+            {dataSource === 'dataset' ? (
+              datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                  <button
+                    type="button"
+                    onClick={switchToInline}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Enter data manually →
                   </button>
-                )}
-              </div>
-
-              {dataset && (
+                  <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                </div>
+              ) : (
                 <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Metric label column</label>
-                    <select
-                      value={config.labelColumn}
-                      onChange={(e) => setConfig((c) => ({ ...c, labelColumn: e.target.value, rowConfigs: [] }))}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="">Select column…</option>
-                      {allCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
-                    <p className="text-xs text-gray-400 mt-0.5">Each unique value becomes a scorecard row</p>
-                  </div>
-
-                  {availablePeriodCols.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-medium text-gray-600">Period columns</label>
-                        <div className="flex gap-2 text-xs">
-                          <button type="button" onClick={() => set('periodColumns', availablePeriodCols.map((c) => c.name))} className="text-[#005EB8] hover:underline">All</button>
-                          <button type="button" onClick={() => set('periodColumns', [])} className="text-gray-400 hover:underline">None</button>
-                        </div>
-                      </div>
-                      <div className="space-y-1 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                        {availablePeriodCols.map((c) => (
-                          <label key={c.name} className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={config.periodColumns.includes(c.name)}
-                              onChange={() => togglePeriodCol(c.name)}
-                              className="w-3.5 h-3.5 rounded border-gray-300 accent-[#005EB8]"
-                            />
-                            <span className="text-xs text-gray-700">{c.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {config.periodColumns.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">Select at least one period column</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
-                    <input
-                      type="text"
-                      value={config.title}
-                      onChange={(e) => set('title', e.target.value)}
-                      placeholder="e.g. Monthly Performance Scorecard"
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.showTrend}
-                      onChange={(e) => set('showTrend', e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 accent-[#005EB8]"
-                    />
-                    <span className="text-sm text-gray-700">Show trend arrows (▲▼ vs prior period)</span>
-                  </label>
-
-                  {config.rowConfigs.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">RAG thresholds per metric</p>
-                      <div className="space-y-3">
-                        {config.rowConfigs.map((row) => (
-                          <div key={row.label} className="bg-gray-50 rounded-lg p-3 space-y-2">
-                            <p className="text-xs font-semibold text-gray-800 truncate" title={row.label}>{row.label}</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">Direction</label>
-                                <select
-                                  value={row.higherIsBetter ? 'higher' : 'lower'}
-                                  onChange={(e) => updateRowConfig(row.label, { higherIsBetter: e.target.value === 'higher' })}
-                                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                >
-                                  <option value="higher">Higher is better</option>
-                                  <option value="lower">Lower is better</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">Unit suffix</label>
-                                <input
-                                  type="text"
-                                  value={row.unit}
-                                  onChange={(e) => updateRowConfig(row.label, { unit: e.target.value })}
-                                  placeholder="%"
-                                  maxLength={8}
-                                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">
-                                  Green {row.higherIsBetter ? '≥' : '≤'}
-                                </label>
-                                <input
-                                  type="number"
-                                  value={row.greenThreshold}
-                                  onChange={(e) => updateRowConfig(row.label, { greenThreshold: Number(e.target.value) })}
-                                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">
-                                  Amber {row.higherIsBetter ? '≥' : '≤'}
-                                </label>
-                                <input
-                                  type="number"
-                                  value={row.amberThreshold}
-                                  onChange={(e) => updateRowConfig(row.label, { amberThreshold: Number(e.target.value) })}
-                                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">Decimals</label>
-                                <select
-                                  value={row.decimalPlaces}
-                                  onChange={(e) => updateRowConfig(row.label, { decimalPlaces: Number(e.target.value) })}
-                                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                >
-                                  <option value={0}>0</option>
-                                  <option value={1}>1</option>
-                                  <option value={2}>2</option>
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  <select
+                    value={config.datasetId}
+                    onChange={(e) => handleDatasetChange(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Select dataset…</option>
+                    {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  {dataset && (
+                    <button type="button" onClick={() => setShowLog(true)} className="text-xs text-indigo-600 hover:underline mt-1">
+                      View transformations
+                    </button>
                   )}
                 </>
+              )
+            ) : (
+              <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
+            )}
+          </div>
+
+          {dataSource === 'dataset' && dataset && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Metric label column</label>
+                <select
+                  value={config.labelColumn}
+                  onChange={(e) => setConfig((c) => ({ ...c, labelColumn: e.target.value, rowConfigs: [] }))}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">Select column…</option>
+                  {allCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+                <p className="text-xs text-gray-400 mt-0.5">Each unique value becomes a scorecard row</p>
+              </div>
+
+              {availablePeriodCols.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-gray-600">Period columns</label>
+                    <div className="flex gap-2 text-xs">
+                      <button type="button" onClick={() => set('periodColumns', availablePeriodCols.map((c) => c.name))} className="text-indigo-600 hover:underline">All</button>
+                      <button type="button" onClick={() => set('periodColumns', [])} className="text-gray-400 hover:underline">None</button>
+                    </div>
+                  </div>
+                  <div className="space-y-1 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                    {availablePeriodCols.map((c) => (
+                      <label key={c.name} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.periodColumns.includes(c.name)}
+                          onChange={() => togglePeriodCol(c.name)}
+                          className="w-3.5 h-3.5 rounded border-gray-300 accent-indigo-600"
+                        />
+                        <span className="text-xs text-gray-700">{c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {config.periodColumns.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">Select at least one period column</p>
+                  )}
+                </div>
               )}
             </>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+            <input
+              type="text"
+              value={config.title}
+              onChange={(e) => set('title', e.target.value)}
+              placeholder="e.g. Monthly Performance Scorecard"
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config.showTrend}
+              onChange={(e) => set('showTrend', e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+            />
+            <span className="text-sm text-gray-700">Show trend arrows (▲▼ vs prior period)</span>
+          </label>
+
+          {config.rowConfigs.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-2">RAG thresholds per metric</p>
+              <div className="space-y-3">
+                {config.rowConfigs.map((row) => (
+                  <div key={row.label} className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-semibold text-gray-800 truncate" title={row.label}>{row.label}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-0.5">Direction</label>
+                        <select
+                          value={row.higherIsBetter ? 'higher' : 'lower'}
+                          onChange={(e) => updateRowConfig(row.label, { higherIsBetter: e.target.value === 'higher' })}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="higher">Higher is better</option>
+                          <option value="lower">Lower is better</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-0.5">Unit suffix</label>
+                        <input
+                          type="text"
+                          value={row.unit}
+                          onChange={(e) => updateRowConfig(row.label, { unit: e.target.value })}
+                          placeholder="%"
+                          maxLength={8}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-0.5">
+                          Green {row.higherIsBetter ? '≥' : '≤'}
+                        </label>
+                        <input
+                          type="number"
+                          value={row.greenThreshold}
+                          onChange={(e) => updateRowConfig(row.label, { greenThreshold: Number(e.target.value) })}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-0.5">
+                          Amber {row.higherIsBetter ? '≥' : '≤'}
+                        </label>
+                        <input
+                          type="number"
+                          value={row.amberThreshold}
+                          onChange={(e) => updateRowConfig(row.label, { amberThreshold: Number(e.target.value) })}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-0.5">Decimals</label>
+                        <select
+                          value={row.decimalPlaces}
+                          onChange={(e) => updateRowConfig(row.label, { decimalPlaces: Number(e.target.value) })}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -264,7 +324,7 @@ export default function ScorecardTileEditor({ datasets, initialConfig, onSave, o
             Cancel
           </button>
           <button type="button" disabled={!canSave} onClick={() => onSave(config)}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             {initialConfig ? 'Save changes' : 'Add to dashboard'}
           </button>
         </div>

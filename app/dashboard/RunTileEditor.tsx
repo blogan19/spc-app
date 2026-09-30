@@ -120,7 +120,7 @@ export default function RunTileEditor({ datasets, annotations, initialConfig, on
                   <button
                     type="button"
                     onClick={() => setShowLog(true)}
-                    className="text-xs text-[#005EB8] hover:underline mt-1"
+                    className="text-xs text-indigo-600 hover:underline mt-1"
                   >
                     View transformations
                   </button>
@@ -204,9 +204,9 @@ export default function RunTileEditor({ datasets, annotations, initialConfig, on
                     />
 
                     {/* Info box */}
-                    <div className="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5">
-                      <p className="text-xs text-[#005EB8] font-medium mb-1">About run charts</p>
-                      <p className="text-xs text-blue-700 leading-relaxed">
+                    <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5">
+                      <p className="text-xs text-indigo-600 font-medium mb-1">About run charts</p>
+                      <p className="text-xs text-indigo-700 leading-relaxed">
                         A run chart plots data over time with a median line. Points are highlighted when they
                         trigger run or trend rules — a shift of 7+ points on one side of the median, or
                         7+ consecutive rising or falling values.
@@ -231,7 +231,7 @@ export default function RunTileEditor({ datasets, annotations, initialConfig, on
             type="button"
             disabled={!canSave}
             onClick={() => onSave(config)}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {initialConfig ? 'Save changes' : 'Add to dashboard'}
           </button>

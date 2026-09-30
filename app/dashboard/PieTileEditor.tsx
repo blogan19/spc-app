@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PieTileConfig, PieLabelKind, Dataset, DashboardTheme } from '@/lib/dashboard/types';
-import { paletteColors } from '@/lib/dashboard/seed';
+import { paletteColors, newId } from '@/lib/dashboard/seed';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
 import DashPieChart from './charts/DashPieChart';
 import TransformLogModal from './TransformLogModal';
 
@@ -12,6 +13,7 @@ interface PieTileEditorProps {
   initialConfig?: PieTileConfig;
   onSave: (config: PieTileConfig) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
 
 const LABEL_OPTIONS: { value: PieLabelKind; label: string }[] = [
@@ -65,12 +67,39 @@ function buildSlices(
   return [...main, { label: 'Other', value: otherVal }];
 }
 
-export default function PieTileEditor({ datasets, theme, initialConfig, onSave, onCancel }: PieTileEditorProps) {
+export default function PieTileEditor({ datasets, theme, initialConfig, onSave, onCancel, onUpsertDataset }: PieTileEditorProps) {
   const palette = paletteColors(theme.palette, theme.customColours);
   const [config, setConfig] = useState<PieTileConfig>(initialConfig ?? defaultConfig(datasets, palette));
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewSize, setPreviewSize] = useState({ w: 560, h: 320 });
   const [showLog, setShowLog] = useState(false);
+
+  const INLINE_PREFIX = '__inline_';
+  const INLINE_COLS: ColSpec[] = [
+    { key: 'category', label: 'Category', type: 'text' },
+    { key: 'value', label: 'Value', type: 'number' },
+  ];
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
+
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, categoryColumn: 'category', valueColumn: 'value' }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
 
   useEffect(() => {
     const el = previewRef.current;
@@ -103,7 +132,9 @@ export default function PieTileEditor({ datasets, theme, initialConfig, onSave, 
     ? buildSlices(dataset, config.categoryColumn, config.valueColumn, config.otherThreshold)
     : [];
 
-  const canSave = !!config.datasetId && !!config.categoryColumn;
+  const canSave = dataSource === 'inline'
+    ? inlineRows.length > 0
+    : (!!config.datasetId && !!config.categoryColumn);
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch">
@@ -116,106 +147,140 @@ export default function PieTileEditor({ datasets, theme, initialConfig, onSave, 
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {datasets.length === 0 ? (
-            <p className="text-sm text-gray-500 bg-gray-50 rounded-xl p-4 text-center">No datasets yet.</p>
-          ) : (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Dataset</label>
-                <select value={config.datasetId} onChange={(e) => handleDatasetChange(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                  <option value="">Select dataset…</option>
-                  {datasets.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-                {dataset && <button type="button" onClick={() => setShowLog(true)} className="text-xs text-[#005EB8] hover:underline mt-1">View transformations</button>}
+          <>
+            {/* Data source */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Data source</label>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+                <button
+                  type="button"
+                  onClick={() => setDataSource('dataset')}
+                  className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Dataset
+                </button>
+                <button
+                  type="button"
+                  onClick={switchToInline}
+                  className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Enter data
+                </button>
               </div>
 
-              {dataset && (
-                <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Category column</label>
-                    <select value={config.categoryColumn} onChange={(e) => set('categoryColumn', e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                      <option value="">Select column…</option>
-                      {[...textCols, ...numCols].map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Value column <span className="font-normal text-gray-400">(optional — blank = count)</span>
-                    </label>
-                    <select value={config.valueColumn} onChange={(e) => set('valueColumn', e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                      <option value="">Count occurrences</option>
-                      {numCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
-                  </div>
-
-                  {slices.length > 0 && (
-                    <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5">
-                      {slices.length} slices · Total: {slices.reduce((s, x) => s + x.value, 0).toLocaleString()}
-                    </p>
-                  )}
-                </>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Chart title</label>
-                <input type="text" value={config.title} onChange={(e) => set('title', e.target.value)}
-                  placeholder="e.g. Complaints by type"
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-
-              {/* Inner radius — pie vs donut */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">
-                  Style: {config.innerRadius === 0 ? 'Pie' : `Donut (${Math.round(config.innerRadius * 100)}% hole)`}
-                </label>
-                <input type="range" min={0} max={0.65} step={0.05} value={config.innerRadius}
-                  onChange={(e) => set('innerRadius', Number(e.target.value))}
-                  className="w-full accent-[#005EB8]" />
-                <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                  <span>Pie</span><span>Donut</span>
-                </div>
-              </div>
-
-              {/* Labels */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Slice labels</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {LABEL_OPTIONS.map((o) => (
-                    <button key={o.value} type="button" onClick={() => set('labelKind', o.value)}
-                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${config.labelKind === o.value ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium' : 'border-gray-300 text-gray-600 hover:border-gray-400'}`}>
-                      {o.label}
+              {dataSource === 'dataset' ? (
+                datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                    <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                    <button
+                      type="button"
+                      onClick={switchToInline}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      Enter data manually →
                     </button>
-                  ))}
-                </div>
-              </div>
+                    <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                  </div>
+                ) : (
+                  <>
+                    <select value={config.datasetId} onChange={(e) => handleDatasetChange(e.target.value)}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                      <option value="">Select dataset…</option>
+                      {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    {dataset && <button type="button" onClick={() => setShowLog(true)} className="text-xs text-indigo-600 hover:underline mt-1">View transformations</button>}
+                  </>
+                )
+              ) : (
+                <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
+              )}
+            </div>
 
-              {/* Other threshold */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Group small slices into &ldquo;Other&rdquo; — below{' '}
-                  <span className="text-[#005EB8]">{config.otherThreshold}%</span>
-                  {config.otherThreshold === 0 && ' (off)'}
-                </label>
-                <input type="range" min={0} max={20} step={1} value={config.otherThreshold}
-                  onChange={(e) => set('otherThreshold', Number(e.target.value))}
-                  className="w-full accent-[#005EB8]" />
-                <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                  <span>Off</span><span>20%</span>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Chart title</label>
+              <input type="text" value={config.title} onChange={(e) => set('title', e.target.value)}
+                placeholder="e.g. Complaints by type"
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            </div>
+
+            {dataSource === 'dataset' && dataset && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Category column</label>
+                  <select value={config.categoryColumn} onChange={(e) => set('categoryColumn', e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Select column…</option>
+                    {[...textCols, ...numCols].map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Value column <span className="font-normal text-gray-400">(optional — blank = count)</span>
+                  </label>
+                  <select value={config.valueColumn} onChange={(e) => set('valueColumn', e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Count occurrences</option>
+                    {numCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                {slices.length > 0 && (
+                  <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5">
+                    {slices.length} slices · Total: {slices.reduce((s, x) => s + x.value, 0).toLocaleString()}
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* Inner radius — pie vs donut */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2">
+                Style: {config.innerRadius === 0 ? 'Pie' : `Donut (${Math.round(config.innerRadius * 100)}% hole)`}
+              </label>
+              <input type="range" min={0} max={0.65} step={0.05} value={config.innerRadius}
+                onChange={(e) => set('innerRadius', Number(e.target.value))}
+                className="w-full accent-indigo-600" />
+              <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                <span>Pie</span><span>Donut</span>
               </div>
-            </>
-          )}
+            </div>
+
+            {/* Labels */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Slice labels</label>
+              <div className="flex flex-wrap gap-1.5">
+                {LABEL_OPTIONS.map((o) => (
+                  <button key={o.value} type="button" onClick={() => set('labelKind', o.value)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${config.labelKind === o.value ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium' : 'border-gray-300 text-gray-600 hover:border-gray-400'}`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Other threshold */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Group small slices into &ldquo;Other&rdquo; — below{' '}
+                <span className="text-indigo-600">{config.otherThreshold}%</span>
+                {config.otherThreshold === 0 && ' (off)'}
+              </label>
+              <input type="range" min={0} max={20} step={1} value={config.otherThreshold}
+                onChange={(e) => set('otherThreshold', Number(e.target.value))}
+                className="w-full accent-indigo-600" />
+              <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                <span>Off</span><span>20%</span>
+              </div>
+            </div>
+          </>
         </div>
 
         <div className="px-5 py-4 border-t border-gray-100 flex gap-2 flex-shrink-0">
           <button type="button" onClick={onCancel}
             className="flex-1 text-sm py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
           <button type="button" disabled={!canSave} onClick={() => onSave(config)}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             {initialConfig ? 'Save changes' : 'Add to dashboard'}
           </button>
         </div>
