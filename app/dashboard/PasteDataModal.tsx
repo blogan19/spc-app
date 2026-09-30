@@ -89,6 +89,7 @@ export default function PasteDataModal({ onConfirm, onClose }: PasteDataModalPro
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Paste data</h2>
@@ -105,7 +106,7 @@ export default function PasteDataModal({ onConfirm, onClose }: PasteDataModalPro
             <button
               type="button"
               onClick={readClipboard}
-              className="text-sm px-3 py-1.5 rounded-lg border border-[#005EB8] text-[#005EB8] hover:bg-blue-50 transition-colors"
+              className="text-sm px-3 py-1.5 rounded-lg border border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition-colors"
             >
               Read from clipboard
             </button>
@@ -127,7 +128,7 @@ export default function PasteDataModal({ onConfirm, onClose }: PasteDataModalPro
           {/* Detection result */}
           {parsed && (
             <div className="text-xs text-gray-500 flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-blue-50 text-[#005EB8] rounded-full font-medium">
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-medium">
                 {DELIM_LABEL[parsed.delimiter]}
               </span>
               <span>{parsed.headers.length} columns · {parsed.rows.length} row{parsed.rows.length !== 1 ? 's' : ''} detected</span>
@@ -204,7 +205,7 @@ export default function PasteDataModal({ onConfirm, onClose }: PasteDataModalPro
             type="button"
             disabled={!canConfirm}
             onClick={() => parsed && onConfirm(name.trim(), parsed.headers, parsed.rows)}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Import dataset
           </button>

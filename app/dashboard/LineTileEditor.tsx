@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { LineTileConfig, Dataset, DashboardTheme, AnnotationDef } from '@/lib/dashboard/types';
-import { paletteColors } from '@/lib/dashboard/seed';
+import { paletteColors, newId } from '@/lib/dashboard/seed';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
 import DashLineChart from './charts/DashLineChart';
 import TransformLogModal from './TransformLogModal';
 import ReferenceLinesPanel from './ReferenceLinesPanel';
@@ -17,6 +18,7 @@ interface LineTileEditorProps {
   initialThemeOverride?: Partial<DashboardTheme> | null;
   onSave: (config: LineTileConfig, themeOverride: Partial<DashboardTheme> | null) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
 
 const DEFAULT_COLORS = ['#005EB8', '#007f3b', '#d5281b', '#41B6E6', '#003087'];
@@ -43,6 +45,7 @@ export default function LineTileEditor({
   initialThemeOverride,
   onSave,
   onCancel,
+  onUpsertDataset,
 }: LineTileEditorProps) {
   const [config, setConfig] = useState<LineTileConfig>(
     initialConfig ?? defaultConfig(datasets),
@@ -54,6 +57,33 @@ export default function LineTileEditor({
   const [previewSize, setPreviewSize] = useState({ w: 560, h: 320 });
   const [showLog, setShowLog] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const INLINE_PREFIX = '__inline_';
+  const INLINE_COLS: ColSpec[] = [
+    { key: 'date', label: 'Date', type: 'date' },
+    { key: 'value', label: 'Value', type: 'number' },
+  ];
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
+
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, xColumn: 'date', yColumns: ['value'] }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
 
   useEffect(() => {
     const el = previewRef.current;
@@ -107,7 +137,9 @@ export default function LineTileEditor({
     });
   };
 
-  const canSave = config.datasetId && config.xColumn && config.yColumns.length > 0;
+  const canSave = dataSource === 'inline'
+    ? inlineRows.length > 0
+    : (config.datasetId && config.xColumn && config.yColumns.length > 0);
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -121,28 +153,57 @@ export default function LineTileEditor({
         </div>
 
         <div className="flex-1 px-5 py-4 space-y-5">
-          {/* Dataset */}
+          {/* Data source */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Dataset</label>
-            {datasets.length === 0 ? (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2.5">
-                No datasets uploaded. Click &ldquo;Datasets&rdquo; in the toolbar first.
-              </p>
-            ) : (
-              <select
-                value={config.datasetId}
-                onChange={(e) => handleDatasetChange(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Data source</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+              <button
+                type="button"
+                onClick={() => setDataSource('dataset')}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
               >
-                <option value="">— choose dataset —</option>
-                {datasets.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+                Dataset
+              </button>
+              <button
+                type="button"
+                onClick={switchToInline}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Enter data
+              </button>
+            </div>
+
+            {dataSource === 'dataset' ? (
+              datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                  <button
+                    type="button"
+                    onClick={switchToInline}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Enter data manually →
+                  </button>
+                  <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                </div>
+              ) : (
+                <select
+                  value={config.datasetId}
+                  onChange={(e) => handleDatasetChange(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">— choose dataset —</option>
+                  {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )
+            ) : (
+              <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
             )}
           </div>
 
-          {dataset && (
+          {dataSource === 'dataset' && dataset && (
             <>
               {/* X column */}
               <div>
@@ -152,7 +213,7 @@ export default function LineTileEditor({
                 <select
                   value={config.xColumn}
                   onChange={(e) => set('xColumn', e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">— choose column —</option>
                   {dateCols.map((c) => (
@@ -176,7 +237,7 @@ export default function LineTileEditor({
                           type="checkbox"
                           checked={config.yColumns.includes(c.name)}
                           onChange={() => toggleYColumn(c.name)}
-                          className="rounded border-gray-300 text-[#005EB8] focus:ring-[#005EB8]"
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                         />
                         <span className="text-sm text-gray-700 group-hover:text-gray-900">{c.name}</span>
                       </label>
@@ -186,6 +247,18 @@ export default function LineTileEditor({
               </div>
             </>
           )}
+
+          {/* Chart title */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Chart title</label>
+            <input
+              type="text"
+              value={config.title}
+              onChange={(e) => set('title', e.target.value)}
+              placeholder="Optional"
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
 
           {/* Advanced settings toggle */}
           <div className="border-t border-gray-100 pt-1">
@@ -229,7 +302,7 @@ export default function LineTileEditor({
                           aria-checked={useTheme}
                           onClick={() => setUseTheme((v) => !v)}
                           className={`relative w-8 h-4 rounded-full transition-colors ${
-                            useTheme ? 'bg-[#005EB8]' : 'bg-gray-300'
+                            useTheme ? 'bg-indigo-600' : 'bg-gray-300'
                           }`}
                         >
                           <span
@@ -273,7 +346,7 @@ export default function LineTileEditor({
                       type="button"
                       onClick={() => set('showPoints', !config.showPoints)}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        config.showPoints ? 'bg-[#005EB8]' : 'bg-gray-200'
+                        config.showPoints ? 'bg-indigo-600' : 'bg-gray-200'
                       }`}
                     >
                       <span
@@ -297,18 +370,6 @@ export default function LineTileEditor({
                   annotations={annotations}
                   onChange={(annotationIds) => set('annotationIds', annotationIds)}
                 />
-
-                {/* Chart title */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Chart title</label>
-                  <input
-                    type="text"
-                    value={config.title}
-                    onChange={(e) => set('title', e.target.value)}
-                    placeholder="Optional"
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
 
                 {/* Axis labels */}
                 <div className="grid grid-cols-2 gap-3">
@@ -351,7 +412,7 @@ export default function LineTileEditor({
             type="button"
             disabled={!canSave}
             onClick={() => onSave(config, useTheme ? null : {})}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {initialConfig ? 'Save changes' : 'Add to dashboard'}
           </button>
@@ -366,7 +427,7 @@ export default function LineTileEditor({
             <button
               type="button"
               onClick={() => setShowLog(true)}
-              className="flex items-center gap-1 text-xs text-[#005EB8] hover:underline"
+              className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />

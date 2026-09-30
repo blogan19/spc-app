@@ -66,12 +66,12 @@ export default function SpotlightCard({ card, anchorEl, onDismiss }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Blue accent stripe */}
-        <div className="h-1 bg-[#005EB8]" />
+        <div className="h-1 bg-indigo-600" />
 
         <div className="p-4">
           {/* Header */}
           <div className="flex items-start gap-2.5 mb-2">
-            <div className="w-5 h-5 rounded-full bg-[#005EB8]/10 text-[#005EB8] flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
               <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
                 <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a1 1 0 110 2 1 1 0 010-2zm0 3.5c.55 0 1 .45 1 1V11a1 1 0 01-2 0V8.5c0-.55.45-1 1-1z"/>
               </svg>
@@ -95,7 +95,7 @@ export default function SpotlightCard({ card, anchorEl, onDismiss }: Props) {
             <button
               type="button"
               onClick={onDismiss}
-              className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-[#005EB8] text-white hover:bg-[#004da0] transition-colors"
+              className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
             >
               Got it
             </button>

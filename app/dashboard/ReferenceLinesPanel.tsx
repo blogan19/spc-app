@@ -41,7 +41,7 @@ export default function ReferenceLinesPanel({ lines, onChange }: ReferenceLinesP
         <button
           type="button"
           onClick={() => setShowBenchmarks((v) => !v)}
-          className="text-xs text-[#005EB8] hover:underline"
+          className="text-xs text-indigo-600 hover:underline"
         >
           {showBenchmarks ? 'Hide NHS benchmarks' : '+ NHS benchmarks'}
         </button>
@@ -49,7 +49,7 @@ export default function ReferenceLinesPanel({ lines, onChange }: ReferenceLinesP
 
       {/* NHS benchmark picker */}
       {showBenchmarks && (
-        <div className="border border-blue-100 rounded-lg bg-blue-50/40 p-2 space-y-1">
+        <div className="border border-indigo-100 rounded-lg bg-indigo-50/40 p-2 space-y-1">
           <p className="text-xs text-gray-500 mb-1.5">Click to add a benchmark line:</p>
           {NHS_BENCHMARKS.map((bm) => {
             const added = lines.some((l) => l.label === bm.name);

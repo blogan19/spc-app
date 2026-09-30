@@ -15,6 +15,7 @@ export default function TemplateGallery({ onSelect, onDismiss }: TemplateGallery
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onDismiss} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Start from a template</h2>
@@ -49,8 +50,8 @@ export default function TemplateGallery({ onSelect, onDismiss }: TemplateGallery
                 onMouseLeave={() => setHovered(null)}
                 className={`w-full text-left flex items-start gap-4 p-4 rounded-xl border transition-all
                   ${hovered === tpl.id
-                    ? 'border-[#005EB8] bg-blue-50/50 shadow-sm'
-                    : 'border-gray-200 hover:border-[#005EB8] hover:bg-blue-50/30'
+                    ? 'border-indigo-500 bg-indigo-50 shadow-sm'
+                    : 'border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/30'
                   }`}
               >
                 <span className="text-3xl flex-shrink-0 mt-0.5">{tpl.icon}</span>
@@ -67,7 +68,7 @@ export default function TemplateGallery({ onSelect, onDismiss }: TemplateGallery
                     ))}
                   </div>
                 </div>
-                <span className={`flex-shrink-0 text-lg transition-transform ${hovered === tpl.id ? 'translate-x-0.5 text-[#005EB8]' : 'text-gray-300'}`}>
+                <span className={`flex-shrink-0 text-lg transition-transform ${hovered === tpl.id ? 'translate-x-0.5 text-indigo-600' : 'text-gray-300'}`}>
                   →
                 </span>
               </button>

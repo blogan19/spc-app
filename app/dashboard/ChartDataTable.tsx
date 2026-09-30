@@ -299,7 +299,7 @@ export function extractTableData(chart: ChartConfig, datasets: Dataset[]): Table
   return null;
 }
 
-const TABLE_TYPES = new Set(['spc', 'kpi', 'bar', 'line', 'run', 'pareto', 'heatmap', 'calendar', 'pie', 'area', 'scatter', 'funnel', 'gantt', 'waterfall', 'pyramid', 'boxplot']);
+const TABLE_TYPES = new Set(['spc', 'kpi', 'bar', 'line', 'run', 'pareto', 'heatmap', 'calendar', 'pie', 'area', 'scatter', 'funnel', 'gantt', 'waterfall', 'pyramid', 'boxplot', 'treemap', 'sankey']);
 
 export function hasTableView(chartType: string): boolean {
   return TABLE_TYPES.has(chartType);

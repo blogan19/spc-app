@@ -32,6 +32,7 @@ export default function TitleTileEditor({ initialConfig, onSave, onCancel }: Tit
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex overflow-hidden" style={{ maxHeight: '90vh' }}>
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         {/* Left: form */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -52,7 +53,7 @@ export default function TitleTileEditor({ initialConfig, onSave, onCancel }: Tit
                 onChange={(e) => set({ title: e.target.value })}
                 placeholder="e.g. Quarterly Performance Review"
                 autoFocus
-                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005EB8]/40"
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               />
             </label>
 
@@ -63,7 +64,7 @@ export default function TitleTileEditor({ initialConfig, onSave, onCancel }: Tit
                 value={form.subtitle}
                 onChange={(e) => set({ subtitle: e.target.value })}
                 placeholder="Optional subtitle or date range"
-                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005EB8]/40"
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               />
             </label>
 
@@ -77,8 +78,8 @@ export default function TitleTileEditor({ initialConfig, onSave, onCancel }: Tit
                     onClick={() => set({ alignment: a })}
                     className={`flex-1 py-2 text-sm rounded-lg border font-medium transition-colors ${
                       form.alignment === a
-                        ? 'bg-[#005EB8] border-[#005EB8] text-white'
-                        : 'border-gray-300 text-gray-700 hover:border-[#005EB8] hover:text-[#005EB8]'
+                        ? 'bg-indigo-600 border-indigo-500 text-white'
+                        : 'border-gray-300 text-gray-700 hover:border-indigo-400 hover:text-indigo-600'
                     }`}
                   >
                     {a === 'left' ? 'Left' : 'Centre'}
@@ -97,8 +98,8 @@ export default function TitleTileEditor({ initialConfig, onSave, onCancel }: Tit
                     onClick={() => set({ backgroundKind: b })}
                     className={`flex-1 py-2 text-sm rounded-lg border font-medium transition-colors ${
                       form.backgroundKind === b
-                        ? 'bg-[#005EB8] border-[#005EB8] text-white'
-                        : 'border-gray-300 text-gray-700 hover:border-[#005EB8] hover:text-[#005EB8]'
+                        ? 'bg-indigo-600 border-indigo-500 text-white'
+                        : 'border-gray-300 text-gray-700 hover:border-indigo-400 hover:text-indigo-600'
                     }`}
                   >
                     {b === 'white' ? 'White' : 'Coloured'}
@@ -140,7 +141,7 @@ export default function TitleTileEditor({ initialConfig, onSave, onCancel }: Tit
               type="button"
               onClick={() => canSave && onSave(form)}
               disabled={!canSave}
-              className="px-4 py-2 rounded-lg bg-[#005EB8] hover:bg-[#003087] text-white text-sm font-medium
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium
                          disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {isNew ? 'Add to dashboard' : 'Save changes'}

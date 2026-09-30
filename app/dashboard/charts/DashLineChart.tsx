@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -266,7 +266,7 @@ export default function DashLineChart({
     xAxisGroup.select('.domain').attr('stroke', '#d1d5db');
     xAxisGroup
       .selectAll('text')
-      .attr('font-size', 10)
+      .attr('font-size', 12)
       .attr('fill', '#6b7280')
       .attr('transform', 'rotate(-35)')
       .attr('text-anchor', 'end')
@@ -276,7 +276,7 @@ export default function DashLineChart({
     // Y axis
     const yAxis = g.append('g').call(d3.axisLeft(y).ticks(5));
     yAxis.select('.domain').attr('stroke', '#d1d5db');
-    yAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    yAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     // Axis labels
     if (xLabel) {
@@ -284,7 +284,7 @@ export default function DashLineChart({
         .attr('x', innerW / 2)
         .attr('y', innerH + marginBottom - 6)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#9ca3af')
         .text(xLabel);
     }
@@ -294,7 +294,7 @@ export default function DashLineChart({
         .attr('x', -innerH / 2)
         .attr('y', -marginLeft + 14)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#9ca3af')
         .text(yLabel);
     }
@@ -316,7 +316,7 @@ export default function DashLineChart({
         legend.append('text')
           .attr('x', lx + 20)
           .attr('y', 4)
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#6b7280')
           .text(col);
       });

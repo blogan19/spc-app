@@ -49,13 +49,13 @@ function emptySlide(): Slide {
 }
 
 function emptyDeck(): SlideDeck {
-  return { id: newId(), name: 'New presentation', slides: [emptySlide()] };
+  return { id: newId(), name: 'Untitled deck', slides: [emptySlide()] };
 }
 
 function defaultEl(type: SlideElement['type'], chartId = ''): SlideElement {
   return {
     id: newId(), type, chartId,
-    text: type === 'text' ? 'Click to edit text' : '',
+    text: type === 'text' ? 'Text' : '',
     x: type === 'text' ? 10 : 5,
     y: type === 'text' ? 38 : 8,
     w: type === 'text' ? 80 : 90,
@@ -86,7 +86,7 @@ function SlideElementView({ element: el, isSelected, state, presentMode, onMouse
   };
 
   const ring = isSelected
-    ? 'ring-2 ring-[#005EB8]'
+    ? 'ring-2 ring-blue-500'
     : presentMode ? '' : 'hover:ring-1 hover:ring-slate-300';
 
   if (el.type === 'chart') {
@@ -123,7 +123,7 @@ function SlideElementView({ element: el, isSelected, state, presentMode, onMouse
         )}
         {isSelected && !presentMode && (
           <div
-            className="absolute bottom-0 right-0 w-4 h-4 bg-[#005EB8] cursor-se-resize z-10"
+            className="absolute bottom-0 right-0 w-4 h-4 bg-slate-700 cursor-se-resize z-10"
             onMouseDown={(e) => { e.stopPropagation(); onMouseDown(e, 'resize'); }}
           />
         )}
@@ -160,19 +160,19 @@ function SlideElementView({ element: el, isSelected, state, presentMode, onMouse
         />
       ) : (
         <span className="w-full whitespace-pre-wrap break-words leading-snug">
-          {el.text || (isSelected && !presentMode ? '…' : '')}
+          {el.text}
         </span>
       )}
       {!presentMode && (
         <div
           className="absolute inset-0 cursor-move"
           onMouseDown={(e) => { e.stopPropagation(); onMouseDown(e, 'move'); }}
-          onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+          onClick={(e) => { e.stopPropagation(); setEditing(true); }}
         />
       )}
       {isSelected && !presentMode && (
         <div
-          className="absolute bottom-0 right-0 w-4 h-4 bg-[#005EB8] cursor-se-resize z-10"
+          className="absolute bottom-0 right-0 w-4 h-4 bg-slate-700 cursor-se-resize z-10"
           onMouseDown={(e) => { e.stopPropagation(); onMouseDown(e, 'resize'); }}
         />
       )}
@@ -290,6 +290,7 @@ function ChartPickerModal({ charts, onSelect, onClose }: {
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-80 max-h-[70vh] flex flex-col overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-800">Add chart to slide</h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded">✕</button>
@@ -327,7 +328,7 @@ type DragState = {
 const BG_PRESETS = [
   { label: 'White', value: '#ffffff' },
   { label: 'Light', value: '#f8fafc' },
-  { label: 'NHS Blue', value: '#003087' },
+  { label: 'Navy', value: '#1e3a5f' },
   { label: 'Dark', value: '#0f172a' },
 ];
 
@@ -601,7 +602,7 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
               value={activeDeck.name}
               onChange={(e) => patchDecks((d) => d.map((dk, i) => i === activeDeckIdx ? { ...dk, name: e.target.value } : dk))}
               className="text-sm text-slate-500 bg-transparent border-none focus:outline-none focus:ring-0 min-w-0 max-w-[160px] truncate"
-              placeholder="Deck name…"
+              placeholder="Deck title"
             />
           )}
         </div>
@@ -645,9 +646,9 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
           <button
             type="button"
             onClick={() => { onSaveDecks(localDecks); onClose(); }}
-            className="text-sm font-medium px-3 py-2 rounded-lg bg-[#005EB8] text-white hover:bg-[#004da0] transition-colors"
+            className="text-sm font-medium px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-700 transition-colors"
           >
-            Save &amp; close
+            Done
           </button>
         </div>
       </header>
@@ -664,7 +665,7 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
                 type="button"
                 onClick={() => { setActiveSlideIdx(si); setSelectedElementId(null); }}
                 className={`w-full rounded-lg overflow-hidden border transition-all ${
-                  si === activeSlideIdx ? 'border-[#005EB8] ring-1 ring-[#005EB8]/30' : 'border-slate-200 hover:border-slate-300'
+                  si === activeSlideIdx ? 'border-slate-700 ring-1 ring-slate-500/30' : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
                 {/* 16:9 thumbnail */}
@@ -685,7 +686,7 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
           </div>
           <div className="p-2 mt-auto border-t border-slate-100 space-y-1">
             <button type="button" onClick={addSlide}
-              className="w-full text-xs text-[#005EB8] hover:bg-blue-50 py-1.5 rounded-lg transition-colors text-center font-medium">
+              className="w-full text-xs text-slate-600 hover:bg-slate-50 py-1.5 rounded-lg transition-colors text-center font-medium">
               + Add slide
             </button>
             <button type="button" onClick={duplicateSlide}
@@ -722,42 +723,71 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
               </button>
             )}
             <span className="text-xs text-slate-400 ml-2">
-              Double-click text to edit · Drag to move · Drag corner to resize
+              Click text to edit · Drag to move · Drag corner to resize
             </span>
           </div>
 
-          {/* Canvas */}
-          <div
-            ref={canvasRef}
-            style={{
-              width: '100%',
-              maxWidth: '880px',
-              aspectRatio: '16 / 9',
-              position: 'relative',
-              background: activeSlide?.background || '#ffffff',
-              boxShadow: '0 4px 32px rgba(0,0,0,0.18)',
-              flexShrink: 0,
-            }}
-            onClick={() => setSelectedElementId(null)}
-          >
-            {activeSlide?.elements.map((el) => (
-              <SlideElementView
-                key={el.id}
-                element={el}
-                isSelected={el.id === selectedElementId}
-                state={state}
-                onMouseDown={(e, mode) => handleElementMouseDown(e, el.id, mode)}
-                onTextChange={(text) => patchElement(el.id, { text })}
-              />
-            ))}
-            {activeSlide?.elements.length === 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 select-none pointer-events-none gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-10 h-10 opacity-50">
-                  <rect x="3" y="3" width="18" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
-                </svg>
-                <span className="text-sm">Add a chart or text block above</span>
+          {/* Canvas with rulers */}
+          <div style={{ maxWidth: '760px', width: '100%' }}>
+            {/* X ruler */}
+            <div style={{ marginLeft: '20px', position: 'relative', height: '18px', userSelect: 'none' }}>
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '1px', background: '#e2e8f0' }} />
+              {[0,10,20,30,40,50,60,70,80,90,100].map((p) => (
+                <div key={p} style={{ position: 'absolute', left: `${p}%`, transform: 'translateX(-50%)', bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  {[0,25,50,75,100].includes(p) && (
+                    <span style={{ fontSize: '7px', color: '#94a3b8', lineHeight: 1, marginBottom: '2px' }}>{p}</span>
+                  )}
+                  <div style={{ width: '1px', height: [0,25,50,75,100].includes(p) ? '5px' : '3px', background: '#cbd5e1' }} />
+                </div>
+              ))}
+            </div>
+            {/* Y ruler + canvas row */}
+            <div style={{ display: 'flex', alignItems: 'stretch' }}>
+              {/* Y ruler */}
+              <div style={{ width: '20px', position: 'relative', flexShrink: 0, userSelect: 'none' }}>
+                <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: '1px', background: '#e2e8f0' }} />
+                {[0,10,20,30,40,50,60,70,80,90,100].map((p) => (
+                  <div key={p} style={{ position: 'absolute', top: `${p}%`, transform: 'translateY(-50%)', right: 0, display: 'flex', alignItems: 'center' }}>
+                    {[0,25,50,75,100].includes(p) && (
+                      <span style={{ fontSize: '7px', color: '#94a3b8', lineHeight: 1, marginRight: '2px' }}>{p}</span>
+                    )}
+                    <div style={{ height: '1px', width: [0,25,50,75,100].includes(p) ? '5px' : '3px', background: '#cbd5e1' }} />
+                  </div>
+                ))}
               </div>
-            )}
+              {/* Canvas */}
+              <div
+                ref={canvasRef}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  aspectRatio: '16 / 9',
+                  position: 'relative',
+                  background: activeSlide?.background || '#ffffff',
+                  boxShadow: '0 4px 32px rgba(0,0,0,0.18)',
+                }}
+                onClick={() => setSelectedElementId(null)}
+              >
+                {activeSlide?.elements.map((el) => (
+                  <SlideElementView
+                    key={el.id}
+                    element={el}
+                    isSelected={el.id === selectedElementId}
+                    state={state}
+                    onMouseDown={(e, mode) => handleElementMouseDown(e, el.id, mode)}
+                    onTextChange={(text) => patchElement(el.id, { text })}
+                  />
+                ))}
+                {activeSlide?.elements.length === 0 && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 select-none pointer-events-none gap-2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-10 h-10 opacity-50">
+                      <rect x="3" y="3" width="18" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
+                    </svg>
+                    <span className="text-sm">Add a chart or text block above</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -775,7 +805,7 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
                     <label className="block text-xs text-slate-500 mb-1">Font size (px)</label>
                     <input type="number" value={selectedElement.fontSize} min={8} max={120}
                       onChange={(e) => patchElement(selectedElement.id, { fontSize: Number(e.target.value) })}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30" />
+                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/30" />
                   </div>
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Text colour</label>
@@ -788,7 +818,9 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
                     <input type="color" value={selectedElement.bgColor || '#ffffff'}
                       onChange={(e) => patchElement(selectedElement.id, { bgColor: e.target.value })}
                       className="w-full h-8 rounded border border-slate-200 cursor-pointer" />
-                    <button type="button" onClick={() => patchElement(selectedElement.id, { bgColor: '' })}
+                    <button type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => patchElement(selectedElement.id, { bgColor: '' })}
                       className="mt-1 text-[10px] text-slate-400 hover:text-slate-600">
                       Clear (transparent)
                     </button>
@@ -797,14 +829,16 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
                     <label className="block text-xs text-slate-500 mb-1">Style</label>
                     <div className="flex gap-1">
                       <button type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => patchElement(selectedElement.id, { fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold' })}
-                        className={`flex-1 text-xs py-1 rounded border transition-colors font-bold ${selectedElement.fontWeight === 'bold' ? 'bg-[#005EB8] text-white border-[#005EB8]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        className={`flex-1 text-xs py-1 rounded border transition-colors font-bold ${selectedElement.fontWeight === 'bold' ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                         B
                       </button>
                       {(['left', 'center', 'right'] as const).map((a) => (
                         <button key={a} type="button"
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => patchElement(selectedElement.id, { textAlign: a })}
-                          className={`flex-1 text-xs py-1 rounded border transition-colors ${selectedElement.textAlign === a ? 'bg-[#005EB8] text-white border-[#005EB8]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                          className={`flex-1 text-xs py-1 rounded border transition-colors ${selectedElement.textAlign === a ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                           {a === 'left' ? '⬅' : a === 'center' ? '⬛' : '➡'}
                         </button>
                       ))}
@@ -844,8 +878,8 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
                   {BG_PRESETS.map((p) => (
                     <button key={p.value} type="button"
                       onClick={() => patchSlide({ background: p.value })}
-                      className={`text-xs py-1.5 rounded-lg border transition-colors ${(activeSlide?.background || '#ffffff') === p.value ? 'ring-2 ring-[#005EB8] border-[#005EB8]' : 'border-slate-200 hover:border-slate-300'}`}
-                      style={{ background: p.value, color: p.value === '#003087' || p.value === '#0f172a' ? '#fff' : '#0f172a' }}>
+                      className={`text-xs py-1.5 rounded-lg border transition-colors ${(activeSlide?.background || '#ffffff') === p.value ? 'ring-2 ring-slate-700 border-slate-600' : 'border-slate-200 hover:border-slate-300'}`}
+                      style={{ background: p.value, color: p.value === '#1e3a5f' || p.value === '#0f172a' ? '#fff' : '#0f172a' }}>
                       {p.label}
                     </button>
                   ))}
@@ -860,8 +894,8 @@ export default function SlidedeckMode({ state, onSaveDecks, onClose }: Props) {
                   rows={5}
                   value={activeSlide?.notes || ''}
                   onChange={(e) => patchSlide({ notes: e.target.value })}
-                  placeholder="Notes for this slide (shown in presenter view)…"
-                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30 placeholder:text-slate-300"
+                  placeholder="Speaker notes"
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-slate-400/30 placeholder:text-slate-300"
                 />
               </div>
             </div>

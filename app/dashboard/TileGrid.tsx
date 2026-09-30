@@ -1,7 +1,7 @@
 'use client';
 
 import { GridLayout, useContainerWidth } from 'react-grid-layout';
-import type { Layout } from 'react-grid-layout';
+import type { Layout, EventCallback } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import type { DashboardState, DashboardTile, Dataset, DashboardTheme, RagRule, AnnotationDef } from '@/lib/dashboard/types';
@@ -61,8 +61,8 @@ export default function TileGrid({
             onClick={onAddTile}
             className="flex flex-col items-center justify-center gap-3
                        border-2 border-dashed border-slate-200 rounded-2xl
-                       text-slate-400 hover:border-[#005EB8] hover:text-[#005EB8]
-                       hover:bg-blue-50/40 transition-all group select-none
+                       text-slate-400 hover:border-indigo-400 hover:text-indigo-600
+                       hover:bg-indigo-50/40 transition-all group select-none
                        w-72 h-48"
           >
             <span className="text-4xl font-light leading-none group-hover:scale-110 transition-transform">＋</span>
@@ -102,7 +102,7 @@ export default function TileGrid({
     addItem,
   ];
 
-  const handleLayoutChange = (newLayout: Layout) => {
+  const handleInteractionEnd: EventCallback = (newLayout) => {
     const updated = tiles.map((tile) => {
       const item = newLayout.find((l) => l.i === tile.id);
       return item ? { ...tile, x: item.x, y: item.y, w: item.w, h: item.h } : tile;
@@ -118,7 +118,8 @@ export default function TileGrid({
           layout={layout}
           gridConfig={{ cols: 12, rowHeight: 80, margin: [12, 12] }}
           dragConfig={{ handle: '.drag-handle' }}
-          onLayoutChange={handleLayoutChange}
+          onDragStop={handleInteractionEnd}
+          onResizeStop={handleInteractionEnd}
         >
           {(() => {
             const sectionTiles = tiles.filter((t) => {
@@ -152,6 +153,7 @@ export default function TileGrid({
                       onDelete={() => onDeleteTile(tile.id)}
                       onDuplicate={() => onDuplicateTile(tile.id)}
                       onDetails={() => onDetailsTile(tile.id)}
+                      readOnly={readOnly}
                     />
                   </div>
                 );
@@ -174,6 +176,7 @@ export default function TileGrid({
                     onDelete={() => onDeleteTile(tile.id)}
                     onDuplicate={() => onDuplicateTile(tile.id)}
                     onDetails={() => onDetailsTile(tile.id)}
+                    readOnly={readOnly}
                   />
                 </div>
               );
@@ -188,8 +191,8 @@ export default function TileGrid({
               onClick={onAddTile}
               className="w-full h-full flex flex-col items-center justify-center gap-2
                          border-2 border-dashed border-slate-200 rounded-xl
-                         text-slate-400 hover:border-[#005EB8] hover:text-[#005EB8]
-                         hover:bg-blue-50/60 transition-all group select-none"
+                         text-slate-400 hover:border-indigo-400 hover:text-indigo-600
+                         hover:bg-indigo-50/60 transition-all group select-none"
             >
               <span className="text-xl font-light leading-none group-hover:scale-110 transition-transform">＋</span>
               <span className="text-xs font-medium tracking-wide">Add tile</span>

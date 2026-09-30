@@ -60,6 +60,7 @@ export default function KpiTileEditor({ initialConfig, ragRules, metrics, onSave
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             {isNew ? 'Add KPI tile' : 'Edit KPI tile'}
@@ -72,8 +73,8 @@ export default function KpiTileEditor({ initialConfig, ragRules, metrics, onSave
         <div className="p-6 space-y-4">
           {/* Metric library picker */}
           {metrics.length > 0 && (
-            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-              <p className="text-xs font-medium text-blue-700 mb-2">From metric library</p>
+            <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
+              <p className="text-xs font-medium text-indigo-700 mb-2">From metric library</p>
               {linkedMetric ? (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-blue-800 truncate">{linkedMetric.name}</span>
@@ -85,7 +86,7 @@ export default function KpiTileEditor({ initialConfig, ragRules, metrics, onSave
                         if (el) el.value = '';
                         clearMetric();
                       }}
-                      className="text-xs text-blue-500 hover:text-blue-700 underline"
+                      className="text-xs text-blue-500 hover:text-indigo-700 underline"
                     >
                       Clear
                     </button>
@@ -187,10 +188,61 @@ export default function KpiTileEditor({ initialConfig, ragRules, metrics, onSave
                 type="checkbox"
                 checked={form.higherIsBetter}
                 onChange={(e) => set({ higherIsBetter: e.target.checked })}
-                className="rounded text-blue-600"
+                className="rounded text-indigo-600"
               />
               <span className="text-sm text-gray-700">Higher value is better</span>
             </label>
+          </div>
+
+          {/* Colours */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+              Colours (optional)
+            </p>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2.5 flex-1 cursor-pointer">
+                  <input
+                    type="color"
+                    value={form.bgColor ?? '#f8fafc'}
+                    onChange={(e) => set({ bgColor: e.target.value })}
+                    className="w-7 h-7 cursor-pointer rounded border border-gray-200 p-0.5"
+                  />
+                  <span className="text-sm text-gray-700">Background</span>
+                </label>
+                {form.bgColor && (
+                  <button type="button" onClick={() => set({ bgColor: undefined })} className="text-xs text-gray-400 hover:text-gray-600 underline">Reset</button>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2.5 flex-1 cursor-pointer">
+                  <input
+                    type="color"
+                    value={form.valueColor ?? '#111827'}
+                    onChange={(e) => set({ valueColor: e.target.value })}
+                    className="w-7 h-7 cursor-pointer rounded border border-gray-200 p-0.5"
+                  />
+                  <span className="text-sm text-gray-700">Value text</span>
+                </label>
+                {form.valueColor && (
+                  <button type="button" onClick={() => set({ valueColor: undefined })} className="text-xs text-gray-400 hover:text-gray-600 underline">Reset</button>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2.5 flex-1 cursor-pointer">
+                  <input
+                    type="color"
+                    value={form.labelColor ?? '#6b7280'}
+                    onChange={(e) => set({ labelColor: e.target.value })}
+                    className="w-7 h-7 cursor-pointer rounded border border-gray-200 p-0.5"
+                  />
+                  <span className="text-sm text-gray-700">Label text</span>
+                </label>
+                {form.labelColor && (
+                  <button type="button" onClick={() => set({ labelColor: undefined })} className="text-xs text-gray-400 hover:text-gray-600 underline">Reset</button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* RAG status */}
@@ -270,7 +322,7 @@ export default function KpiTileEditor({ initialConfig, ragRules, metrics, onSave
             type="button"
             onClick={handleSave}
             disabled={!form.label.trim()}
-            className="px-4 py-2 rounded-lg bg-[#005EB8] hover:bg-[#003087] text-white text-sm font-medium
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium
                        disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isNew ? 'Add to dashboard' : 'Save changes'}

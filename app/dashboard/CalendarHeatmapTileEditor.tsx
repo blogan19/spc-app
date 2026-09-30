@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarHeatmapTileConfig, HeatmapColorScheme, Dataset } from '@/lib/dashboard/types';
 import DashCalendarHeatmap, { type CalendarDay } from './charts/DashCalendarHeatmap';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
+import { newId } from '@/lib/dashboard/seed';
 
 interface CalendarHeatmapTileEditorProps {
   datasets: Dataset[];
   initialConfig?: CalendarHeatmapTileConfig;
   onSave: (config: CalendarHeatmapTileConfig) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
 
 const COLOR_OPTIONS: { value: HeatmapColorScheme; label: string }[] = [
@@ -24,6 +27,12 @@ const DEFAULT: CalendarHeatmapTileConfig = {
   title: '',
   colorScheme: 'sequential-green',
 };
+
+const INLINE_PREFIX = '__inline_';
+const INLINE_COLS: ColSpec[] = [
+  { key: 'date', label: 'Date (YYYY-MM-DD)', type: 'date' },
+  { key: 'value', label: 'Value', type: 'number' },
+];
 
 function buildCalendarData(
   dataset: Dataset,
@@ -52,6 +61,7 @@ export default function CalendarHeatmapTileEditor({
   initialConfig,
   onSave,
   onCancel,
+  onUpsertDataset,
 }: CalendarHeatmapTileEditorProps) {
   const [config, setConfig] = useState<CalendarHeatmapTileConfig>(
     initialConfig ?? { ...DEFAULT, datasetId: datasets[0]?.id ?? '' },
@@ -59,6 +69,16 @@ export default function CalendarHeatmapTileEditor({
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewSize, setPreviewSize] = useState({ w: 700, h: 180 });
   const [previewYear, setPreviewYear] = useState(new Date().getFullYear());
+
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
 
   useEffect(() => {
     const el = previewRef.current;
@@ -73,6 +93,18 @@ export default function CalendarHeatmapTileEditor({
   const set = <K extends keyof CalendarHeatmapTileConfig>(k: K, v: CalendarHeatmapTileConfig[K]) =>
     setConfig((c) => ({ ...c, [k]: v }));
 
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, dateColumn: 'date', valueColumn: 'value' }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
+
   const ds = datasets.find((d) => d.id === config.datasetId);
   const dateCols = ds?.columns.filter((c) => (c.typeOverride ?? c.type) === 'date') ?? [];
   const numCols = ds?.columns.filter((c) => (c.typeOverride ?? c.type) === 'numeric') ?? [];
@@ -85,7 +117,7 @@ export default function CalendarHeatmapTileEditor({
     new Set(previewData.map((d) => new Date(d.date).getFullYear())),
   ).sort((a, b) => b - a);
 
-  const canSave = config.datasetId && config.dateColumn;
+  const canSave = dataSource === 'inline' ? inlineRows.length > 0 : !!(config.datasetId && config.dateColumn);
 
   return (
     <div className="fixed inset-0 z-50 flex bg-white">
@@ -103,30 +135,61 @@ export default function CalendarHeatmapTileEditor({
               value={config.title}
               onChange={(e) => set('title', e.target.value)}
               placeholder="e.g. Daily ED Attendances"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
             />
           </div>
 
+          {/* Data source */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Dataset</label>
-            <select
-              value={config.datasetId}
-              onChange={(e) => set('datasetId', e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30"
-            >
-              <option value="">Select…</option>
-              {datasets.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Data source</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+              <button type="button" onClick={() => setDataSource('dataset')}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Dataset
+              </button>
+              <button type="button" onClick={switchToInline}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Enter data
+              </button>
+            </div>
+            {dataSource === 'dataset' ? (
+              datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                  <button
+                    type="button"
+                    onClick={switchToInline}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Enter data manually →
+                  </button>
+                  <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                </div>
+              ) : (
+                <select
+                  value={config.datasetId}
+                  onChange={(e) => set('datasetId', e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                >
+                  <option value="">Select…</option>
+                  {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )
+            ) : (
+              <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
+            )}
           </div>
 
-          {ds && (
+          {dataSource === 'dataset' && ds && (
             <>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date column</label>
                 <select
                   value={config.dateColumn}
                   onChange={(e) => set('dateColumn', e.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                 >
                   <option value="">Select…</option>
                   {dateCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -138,7 +201,7 @@ export default function CalendarHeatmapTileEditor({
                 <select
                   value={config.valueColumn}
                   onChange={(e) => set('valueColumn', e.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                 >
                   <option value="">Count rows per day</option>
                   {numCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -159,7 +222,7 @@ export default function CalendarHeatmapTileEditor({
                     value={opt.value}
                     checked={config.colorScheme === opt.value}
                     onChange={() => set('colorScheme', opt.value)}
-                    className="accent-[#005EB8]"
+                    className="accent-indigo-600"
                   />
                   <span className="text-sm text-gray-700">{opt.label}</span>
                 </label>
@@ -173,7 +236,7 @@ export default function CalendarHeatmapTileEditor({
             type="button"
             onClick={() => onSave(config)}
             disabled={!canSave}
-            className="flex-1 py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] disabled:opacity-40 text-white font-medium text-sm transition-colors"
+            className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-medium text-sm transition-colors"
           >
             Add to dashboard
           </button>

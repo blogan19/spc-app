@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { useDashboardAutosave } from '@/lib/dashboard/useDashboardAutosave';
 import type {
   ChartConfig,
   DashboardState,
@@ -11,7 +12,6 @@ import type {
 } from '@/lib/dashboard/types';
 import { emptyDashboard, newId } from '@/lib/dashboard/seed';
 import { downloadDashboard, loadDashboardFile, downloadSnapshot, downloadTemplate, type SnapshotMeta } from '@/lib/dashboard/io';
-import { compressState, estimateShareSize, stripDataForShare } from '@/lib/dashboard/share';
 import SnapshotModal from './SnapshotModal';
 import SnapshotHistoryPanel from './SnapshotHistoryPanel';
 import DatasetManager from './DatasetManager';
@@ -51,6 +51,7 @@ import ChartWizard from './ChartWizard';
 import ChangeHistoryPanel, { type ChangeEntry } from './ChangeHistoryPanel';
 import PresentationMode from './PresentationMode';
 import EmbedCodeModal from './EmbedCodeModal';
+import ShareLinkModal from './ShareLinkModal';
 import SlidedeckMode from './SlidedeckMode';
 import PresentPickerModal from './PresentPickerModal';
 import ExampleGallery from './ExampleGallery';
@@ -67,6 +68,11 @@ import HelpPanel from './HelpPanel';
 import TitleTileEditor from './TitleTileEditor';
 import SectionTileEditor from './SectionTileEditor';
 import ScorecardTileEditor from './ScorecardTileEditor';
+import DashboardHeader from './DashboardHeader';
+import DividerTileEditor from './DividerTileEditor';
+import GaugeTileEditor from './GaugeTileEditor';
+import TreemapTileEditor from './TreemapTileEditor';
+import SankeyTileEditor from './SankeyTileEditor';
 
 type EditTarget =
   | { kind: 'spc'; tileId: string | null; chartId: string | null }
@@ -90,7 +96,11 @@ type EditTarget =
   | { kind: 'calendar'; tileId: string | null; chartId: string | null }
   | { kind: 'title'; tileId: string | null; chartId: string | null }
   | { kind: 'section'; tileId: string | null; chartId: string | null }
-  | { kind: 'scorecard'; tileId: string | null; chartId: string | null };
+  | { kind: 'scorecard'; tileId: string | null; chartId: string | null }
+  | { kind: 'divider'; tileId: string | null; chartId: string | null }
+  | { kind: 'gauge'; tileId: string | null; chartId: string | null }
+  | { kind: 'treemap'; tileId: string | null; chartId: string | null }
+  | { kind: 'sankey'; tileId: string | null; chartId: string | null };
 
 function bgClass(bg: DashboardTheme['background']) {
   if (bg === 'lightGrey') return '#f1f5f9';
@@ -98,8 +108,13 @@ function bgClass(bg: DashboardTheme['background']) {
   return '#f8fafc';
 }
 
-export default function DashboardWorkspace() {
-  const [state, setState] = useState<DashboardState>(emptyDashboard());
+interface DashboardWorkspaceProps {
+  dashboardId?: string;
+  initialState?: DashboardState;
+}
+
+export default function DashboardWorkspace({ dashboardId, initialState }: DashboardWorkspaceProps) {
+  const { state, setState, saveStatus } = useDashboardAutosave(dashboardId, initialState);
   const [showDatasets, setShowDatasets] = useState(false);
   const [showPiiOnboarding, setShowPiiOnboarding] = useState(false);
   const [pendingDatasetsOpen, setPendingDatasetsOpen] = useState(false);
@@ -111,6 +126,8 @@ export default function DashboardWorkspace() {
   const [showAnnotations, setShowAnnotations] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const shareRef = useRef<HTMLDivElement>(null);
+  const [showShare, setShowShare] = useState(false);
   const [detailsChartId, setDetailsChartId] = useState<string | null>(null);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
@@ -124,6 +141,7 @@ export default function DashboardWorkspace() {
   const [showSlidedeck, setShowSlidedeck] = useState(false);
   const [showPresentPicker, setShowPresentPicker] = useState(false);
   const [showEmbed, setShowEmbed] = useState(false);
+  const [showShareLink, setShowShareLink] = useState(false);
   const [showExamples, setShowExamples] = useState(false);
   const [viewingExample, setViewingExample] = useState<ExampleDef | null>(null);
   const [activeWalkthrough, setActiveWalkthrough] = useState<WalkthroughDef | null>(null);
@@ -155,12 +173,7 @@ export default function DashboardWorkspace() {
     }
   };
 
-  useEffect(() => {
-    if (!hasSeen('welcome')) {
-      markSeen('welcome');
-      setActiveWalkthrough(WALKTHROUGHS.welcome);
-    }
-  }, []);
+  // Welcome walkthrough disabled — was intercepting all clicks on first visit
 
   const refreshableTargets: RefreshTarget[] = state.datasets
     .filter((d) => d.refreshConfig?.enabled && d.refreshConfig.periodColumn && d.refreshConfig.valueColumns.length > 0)
@@ -192,7 +205,7 @@ export default function DashboardWorkspace() {
     const chart = state.charts.find((c) => c.id === tile.chartId);
     if (!chart) return;
     trySpotlight('tile-click');
-    setEditTarget({ kind: chart.type as TileKind, tileId: tile.id, chartId: chart.id });
+    setEditTarget({ kind: chart.type as TileKind, tileId: tile.id, chartId: chart.id } as EditTarget);
   };
 
   const handleDeleteTile = (tileId: string) => {
@@ -295,22 +308,9 @@ export default function DashboardWorkspace() {
     setState((s) => ({ ...s, slideDecks }));
   };
 
-  const copyShareLink = async () => {
-    const SIZE_LIMIT = 200_000; // ~200KB uncompressed before we warn
-    const stateToShare = estimateShareSize(state) > SIZE_LIMIT ? stripDataForShare(state) : state;
-    const stripped = estimateShareSize(state) > SIZE_LIMIT;
-    try {
-      const compressed = await compressState(stateToShare);
-      const url = `${window.location.origin}/dashboard/view?d=${compressed}`;
-      await navigator.clipboard.writeText(url);
-      const msg = stripped
-        ? 'Share link copied! (Dashboard is large — dataset rows were excluded. Recipients will see the layout but no chart data.)'
-        : 'Share link copied to clipboard. Anyone with this link can view the dashboard in read-only mode.';
-      window.alert(msg);
-      logChange('dashboard-shared', state.dashboard.title || 'Untitled');
-    } catch {
-      window.alert('Could not copy link. Try saving the dashboard as a file and sharing that instead.');
-    }
+  const copyShareLink = () => {
+    setShowShareLink(true);
+    logChange('dashboard-shared', state.dashboard.title || 'Untitled');
   };
 
   const saveDetails = (chartId: string, details: TileDetails) => {
@@ -352,6 +352,10 @@ export default function DashboardWorkspace() {
           title: { w: 12, h: 2 },
           section: { w: 6, h: 5 },
           scorecard: { w: 12, h: 5 },
+          divider: { w: 12, h: 1 },
+          gauge: { w: 4, h: 4 },
+          treemap: { w: 6, h: 5 },
+          sankey: { w: 8, h: 5 },
         };
         const maxY = tiles.reduce((m, t) => Math.max(m, t.y + t.h), 0);
         tiles = [
@@ -367,15 +371,24 @@ export default function DashboardWorkspace() {
     setShowAddTile(false);
   };
 
+  const handleUpsertDataset = (ds: import('@/lib/dashboard/types').Dataset) => {
+    setState((s) => ({
+      ...s,
+      datasets: s.datasets.some((d) => d.id === ds.id)
+        ? s.datasets.map((d) => (d.id === ds.id ? ds : d))
+        : [...s.datasets, ds],
+    }));
+  };
+
   const handleAddTileKind = (kind: TileKind) => {
     trySpotlight('add-tile');
     setShowAddTile(false);
-    setEditTarget({ kind, tileId: null, chartId: null });
+    setEditTarget({ kind, tileId: null, chartId: null } as EditTarget);
   };
 
   const handleWizardSelect = (kind: TileKind) => {
     setShowWizard(false);
-    setEditTarget({ kind, tileId: null, chartId: null });
+    setEditTarget({ kind, tileId: null, chartId: null } as EditTarget);
   };
 
   const handleLoadTemplate = (tpl: TemplateDef) => {
@@ -388,7 +401,7 @@ export default function DashboardWorkspace() {
     : null;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgClass(state.dashboard.theme.background) }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: bgClass(state.dashboard.theme.background) }}>
       {/* Hidden file input for loading */}
       <input
         ref={loadRef}
@@ -418,7 +431,22 @@ export default function DashboardWorkspace() {
       />
 
       {/* Toolbar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-4">
+      <header className="sticky top-0 z-40 bg-white shadow-sm flex flex-col">
+        <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+      <div className="px-5 py-3 flex items-center gap-4 bg-gradient-to-r from-indigo-50/60 to-transparent">
+        {/* Back to dashboard list — only in cloud mode */}
+        {dashboardId && (
+          <Link
+            href="/dashboard"
+            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Back to dashboards"
+          >
+            <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+              <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </Link>
+        )}
+
         {/* Title */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <input
@@ -437,25 +465,32 @@ export default function DashboardWorkspace() {
 
         {/* Right actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Save status */}
+          {saveStatus === 'local' ? (
+            <Link
+              href="/auth/signin"
+              className="text-xs px-2 py-1 rounded-full text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors whitespace-nowrap"
+              title="Sign in to save your dashboards to the cloud"
+            >
+              Local only · Sign in to save
+            </Link>
+          ) : (
+            <span className={`text-xs px-2 py-1 rounded-full transition-colors ${saveStatus === 'saving' ? 'text-amber-600 bg-amber-50' : 'text-indigo-400 bg-indigo-50'}`}>
+              {saveStatus === 'saving' ? 'Saving…' : 'Saved'}
+            </span>
+          )}
+
           {/* Data — primary visible CTA */}
           <button
             type="button"
             data-tour="data-button"
-            onClick={() => {
-              if (!hasSeen('upload')) {
-                markSeen('upload');
-                afterWalkthroughRef.current = openDatasets;
-                setActiveWalkthrough(WALKTHROUGHS.upload);
-              } else {
-                openDatasets();
-              }
-            }}
-            className="text-sm px-4 py-2 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-700 transition-colors flex items-center gap-1.5"
+            onClick={() => { openDatasets(); }}
+            className="text-sm px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
           >
             <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
               <path d="M8 2C4.69 2 2 3.12 2 4.5S4.69 7 8 7s6-1.12 6-2.5S11.31 2 8 2zM2 6.5v2C2 9.88 4.69 11 8 11s6-1.12 6-2.5v-2C14 7.88 11.31 9 8 9S2 7.88 2 6.5zM2 10.5v2C2 13.88 4.69 15 8 15s6-1.12 6-2.5v-2C14 11.88 11.31 13 8 13s-6-1.12-6-2.5z"/>
             </svg>
-            Data upload
+            Data
             {state.datasets.length > 0 && (
               <span className="text-xs font-medium bg-white/20 px-1.5 py-0.5 rounded-full">
                 {state.datasets.length}
@@ -467,7 +502,7 @@ export default function DashboardWorkspace() {
             <button
               type="button"
               onClick={() => setShowAddPeriod(true)}
-              className="text-sm px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors font-medium"
+              className="text-sm px-3 py-2 rounded-xl border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors font-medium"
             >
               + New period
             </button>
@@ -477,8 +512,13 @@ export default function DashboardWorkspace() {
           <button
             type="button"
             onClick={() => setShowExamples(true)}
-            className="text-sm px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
+            className="text-sm px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors font-medium flex items-center gap-1.5"
+            title="Browse examples"
           >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M10.5 5.5l-2 4-4 2 2-4 4-2z" strokeLinejoin="round" />
+            </svg>
             Examples
           </button>
 
@@ -487,8 +527,13 @@ export default function DashboardWorkspace() {
             type="button"
             data-tour="templates-button"
             onClick={() => setShowTemplates(true)}
-            className="text-sm px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
+            className="text-sm px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors font-medium flex items-center gap-1.5"
+            title="Browse templates"
           >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+              <rect x="1" y="1" width="14" height="9" rx="1.5" />
+              <path d="M1 6h14M5 6v4" strokeLinecap="round" />
+            </svg>
             Templates
           </button>
 
@@ -496,16 +541,8 @@ export default function DashboardWorkspace() {
           <button
             type="button"
             data-tour="present-button"
-            onClick={() => {
-              if (!hasSeen('present')) {
-                markSeen('present');
-                afterWalkthroughRef.current = () => setShowPresentPicker(true);
-                setActiveWalkthrough(WALKTHROUGHS.present);
-              } else {
-                setShowPresentPicker(true);
-              }
-            }}
-            className="text-sm px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium flex items-center gap-1.5"
+            onClick={() => { setShowPresentPicker(true); }}
+            className="text-sm px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors font-medium flex items-center gap-1.5"
             title="Present this dashboard"
           >
             <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
@@ -518,7 +555,7 @@ export default function DashboardWorkspace() {
           <button
             type="button"
             onClick={() => { setHelpArticleId(undefined); setShowHelp(true); }}
-            className="text-sm px-2.5 py-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+            className="text-sm px-2.5 py-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
             title="Help &amp; guidance"
             aria-label="Help"
           >
@@ -527,24 +564,88 @@ export default function DashboardWorkspace() {
             </svg>
           </button>
 
-          {/* Save — secondary visible */}
+          {/* Save — icon only */}
           <button
             type="button"
             onClick={() => { downloadDashboard(state); logChange('dashboard-saved', state.dashboard.title || 'Untitled'); }}
-            className="text-sm px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
+            className="text-sm px-2.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
             title="Save dashboard as JSON"
+            aria-label="Save dashboard as JSON"
           >
-            Save
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+              <path d="M8 2v8M5 7l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
+
+          {/* Share dropdown */}
+          <div className="relative" ref={shareRef}>
+            <button
+              type="button"
+              onClick={() => setShowShare((v) => !v)}
+              className={`text-sm px-3 py-2 rounded-xl border transition-colors font-medium flex items-center gap-1.5 ${
+                showShare
+                  ? 'border-indigo-400 bg-indigo-50 text-indigo-600'
+                  : 'border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-200'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+                <path d="M6.5 3.5H4a2 2 0 000 4h1.5M9.5 3.5H12a2 2 0 010 4h-1.5M5 6h6" strokeLinecap="round"/>
+              </svg>
+              Share
+            </button>
+
+            {showShare && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowShare(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+                  <div className="p-2">
+                    <p className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Share this dashboard</p>
+                    <button type="button" onClick={() => { setShowShare(false); copyShareLink(); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-3">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"><path d="M6.5 3.5H4a2 2 0 000 4h1.5M9.5 3.5H12a2 2 0 010 4h-1.5M5 6h6" strokeLinecap="round"/></svg>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">Share link</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Copy a read-only URL — anyone with the link can view</p>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => { setShowEmbed(true); setShowShare(false); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-3">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"><path d="M5 4L2 8l3 4M11 4l3 4-3 4M9 3l-2 10" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">Embed code</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Embed an interactive iframe in a website or intranet</p>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => { downloadDashboard(state); logChange('dashboard-saved', state.dashboard.title || 'Untitled'); setShowShare(false); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-3">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"><path d="M8 2v8M5 7l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">Download JSON</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Save a backup file including all data and settings</p>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => { downloadTemplate(state); logChange('template-exported', state.dashboard.title || 'Untitled'); setShowShare(false); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-3">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"><rect x="1" y="1" width="14" height="9" rx="1.5"/><path d="M1 6h14M5 6v4" strokeLinecap="round"/></svg>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">Share as template</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Export the layout and chart settings without the data</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* ••• overflow menu */}
           <div className="relative" ref={moreRef}>
             <button
               type="button"
               onClick={(e) => { setShowMore((v) => !v); trySpotlight('overflow-menu', e.currentTarget); }}
-              className={`text-sm px-3 py-2 rounded-lg border transition-colors font-medium ${
+              className={`text-sm px-3 py-2 rounded-xl border transition-colors font-medium ${
                 showMore
-                  ? 'border-[#005EB8] bg-blue-50 text-[#005EB8]'
+                  ? 'border-indigo-400 bg-indigo-50 text-indigo-600'
                   : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
               }`}
               aria-label="More options"
@@ -561,6 +662,22 @@ export default function DashboardWorkspace() {
                     <button type="button" onClick={() => { setShowTheme(true); setShowMore(false); }}
                       className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
                       Theme &amp; palette
+                    </button>
+                    <button type="button" onClick={() => {
+                      setState((s) => ({
+                        ...s,
+                        dashboard: {
+                          ...s.dashboard,
+                          header: s.dashboard.header?.enabled
+                            ? { ...s.dashboard.header, enabled: false }
+                            : { enabled: true, title: s.dashboard.title, subtitle: '', bgColor: '#f8fafc', textColor: '#1e293b', subtitleColor: '#64748b', ...(s.dashboard.header ?? {}) },
+                        },
+                      }));
+                      setShowMore(false);
+                    }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between">
+                      <span>Dashboard header</span>
+                      {state.dashboard.header?.enabled && <span className="text-xs text-indigo-500">On</span>}
                     </button>
                   </div>
                   <div className="border-t border-slate-100 p-1.5">
@@ -582,31 +699,10 @@ export default function DashboardWorkspace() {
                     </button>
                   </div>
                   <div className="border-t border-slate-100 p-1.5">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Share &amp; export</p>
-                    <button type="button" onClick={() => {
-                      setShowMore(false);
-                      if (!hasSeen('share')) {
-                        markSeen('share');
-                        afterWalkthroughRef.current = copyShareLink;
-                        setActiveWalkthrough(WALKTHROUGHS.share);
-                      } else {
-                        copyShareLink();
-                      }
-                    }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2">
-                      <span className="text-base">🔗</span> Copy share link
-                    </button>
-                    <button type="button" onClick={() => { setShowEmbed(true); setShowMore(false); }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2">
-                      <span className="text-base">&#x3C;/&#x3E;</span> Get embed code
-                    </button>
+                    <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">File</p>
                     <button type="button" onClick={() => { loadRef.current?.click(); setShowMore(false); }}
                       className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
                       Load file…
-                    </button>
-                    <button type="button" onClick={() => { downloadTemplate(state); logChange('template-exported', state.dashboard.title || 'Untitled'); setShowMore(false); }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
-                      Share as template
                     </button>
                     <button type="button" onClick={() => { setShowSnapshotModal(true); setShowMore(false); }}
                       className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
@@ -641,6 +737,7 @@ export default function DashboardWorkspace() {
             )}
           </div>
         </div>
+      </div>
       </header>
 
       {/* Theme panel */}
@@ -702,8 +799,21 @@ export default function DashboardWorkspace() {
         );
       })()}
 
+      {/* Dashboard header/navbar */}
+      {state.dashboard.header?.enabled && (
+        <DashboardHeader
+          header={state.dashboard.header}
+          onUpdate={(patch) =>
+            setState((s) => ({
+              ...s,
+              dashboard: { ...s.dashboard, header: { ...s.dashboard.header!, ...patch } },
+            }))
+          }
+        />
+      )}
+
       {/* Main content */}
-      <main className="p-4">
+      <main className="flex-1 overflow-auto p-6">
         <TileGrid
           state={state}
           datasets={state.datasets}
@@ -719,6 +829,18 @@ export default function DashboardWorkspace() {
           onDetailsTile={handleDetailsTile}
         />
       </main>
+
+      <footer className="bg-white border-t border-slate-100 flex-shrink-0">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-indigo-600">SPC Dashboard</span>
+            <span className="text-slate-300 text-xs">·</span>
+            <span className="text-xs text-slate-400">Statistical Process Control for Quality Improvement</span>
+          </div>
+          <span className="text-xs text-slate-300">NHS Making Data Count</span>
+        </div>
+        <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+      </footer>
 
       {/* Modals */}
       {showPiiOnboarding && (
@@ -921,6 +1043,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -950,6 +1073,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -976,6 +1100,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1002,6 +1127,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1029,6 +1155,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1108,6 +1235,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1135,6 +1263,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1162,6 +1291,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1188,6 +1318,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1215,6 +1346,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1241,6 +1373,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1267,6 +1400,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1285,6 +1419,109 @@ export default function DashboardWorkspace() {
                 id: editTarget.chartId ?? newId(),
                 type: 'boxplot',
                 name: config.title || config.valueColumn || 'Box plot',
+                datasetId: config.datasetId,
+                config,
+                themeOverride: null,
+                drillThrough: { enabled: false, targetType: 'filteredView', targetDashboardId: null, filterColumn: null },
+              },
+              editTarget.tileId,
+            )
+          }
+          onUpsertDataset={handleUpsertDataset}
+          onCancel={() => setEditTarget(null)}
+        />
+      )}
+
+      {editTarget?.kind === 'divider' && (
+        <DividerTileEditor
+          initialConfig={
+            activeChart?.type === 'divider'
+              ? (activeChart.config as import('@/lib/dashboard/types').DividerTileConfig)
+              : undefined
+          }
+          onSave={(config) =>
+            saveChart(
+              {
+                id: editTarget.chartId ?? newId(),
+                type: 'divider',
+                name: config.label || 'Divider',
+                datasetId: null,
+                config,
+                themeOverride: null,
+                drillThrough: { enabled: false, targetType: 'filteredView', targetDashboardId: null, filterColumn: null },
+              },
+              editTarget.tileId,
+            )
+          }
+          onCancel={() => setEditTarget(null)}
+        />
+      )}
+
+      {editTarget?.kind === 'gauge' && (
+        <GaugeTileEditor
+          initialConfig={
+            activeChart?.type === 'gauge'
+              ? (activeChart.config as import('@/lib/dashboard/types').GaugeTileConfig)
+              : undefined
+          }
+          onSave={(config) =>
+            saveChart(
+              {
+                id: editTarget.chartId ?? newId(),
+                type: 'gauge',
+                name: config.label || 'Gauge',
+                datasetId: null,
+                config,
+                themeOverride: null,
+                drillThrough: { enabled: false, targetType: 'filteredView', targetDashboardId: null, filterColumn: null },
+              },
+              editTarget.tileId,
+            )
+          }
+          onCancel={() => setEditTarget(null)}
+        />
+      )}
+
+      {editTarget?.kind === 'treemap' && (
+        <TreemapTileEditor
+          datasets={state.datasets}
+          initialConfig={
+            activeChart?.type === 'treemap'
+              ? (activeChart.config as import('@/lib/dashboard/types').TreemapTileConfig)
+              : undefined
+          }
+          onSave={(config) =>
+            saveChart(
+              {
+                id: editTarget.chartId ?? newId(),
+                type: 'treemap',
+                name: config.title || config.labelColumn || 'Treemap',
+                datasetId: config.datasetId,
+                config,
+                themeOverride: null,
+                drillThrough: { enabled: false, targetType: 'filteredView', targetDashboardId: null, filterColumn: null },
+              },
+              editTarget.tileId,
+            )
+          }
+          onCancel={() => setEditTarget(null)}
+        />
+      )}
+
+      {editTarget?.kind === 'sankey' && (
+        <SankeyTileEditor
+          datasets={state.datasets}
+          initialConfig={
+            activeChart?.type === 'sankey'
+              ? (activeChart.config as import('@/lib/dashboard/types').SankeyTileConfig)
+              : undefined
+          }
+          onSave={(config) =>
+            saveChart(
+              {
+                id: editTarget.chartId ?? newId(),
+                type: 'sankey',
+                name: config.title || config.sourceColumn || 'Sankey',
                 datasetId: config.datasetId,
                 config,
                 themeOverride: null,
@@ -1316,6 +1553,13 @@ export default function DashboardWorkspace() {
         <EmbedCodeModal
           state={state}
           onClose={() => setShowEmbed(false)}
+        />
+      )}
+
+      {showShareLink && (
+        <ShareLinkModal
+          state={state}
+          onClose={() => setShowShareLink(false)}
         />
       )}
 
@@ -1388,6 +1632,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}
@@ -1456,6 +1701,7 @@ export default function DashboardWorkspace() {
               editTarget.tileId,
             )
           }
+          onUpsertDataset={handleUpsertDataset}
           onCancel={() => setEditTarget(null)}
         />
       )}

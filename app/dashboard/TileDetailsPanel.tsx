@@ -20,7 +20,7 @@ const STATUS_LABELS: Record<ActionStatus, string> = {
 
 const STATUS_COLORS: Record<ActionStatus | 'overdue', string> = {
   'not-started': 'bg-gray-200 text-gray-600',
-  'in-progress': 'bg-blue-100 text-blue-700',
+  'in-progress': 'bg-blue-100 text-indigo-700',
   'complete': 'bg-emerald-100 text-emerald-700',
   'overdue': 'bg-red-100 text-red-700',
 };
@@ -112,7 +112,7 @@ function ActionForm({
               status,
             })
           }
-          className="flex-1 text-xs py-1.5 rounded-lg bg-[#005EB8] text-white font-medium hover:bg-[#003087] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 text-xs py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Save action
         </button>
@@ -232,7 +232,7 @@ export default function TileDetailsPanel({
                     onClick={() => set('targetDirection', d)}
                     className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
                       details.targetDirection === d
-                        ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
                         : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
@@ -306,7 +306,7 @@ export default function TileDetailsPanel({
                     <button
                       type="button"
                       onClick={() => setEditingActionId(action.id)}
-                      className="text-xs text-[#005EB8] hover:underline"
+                      className="text-xs text-indigo-600 hover:underline"
                     >
                       Edit
                     </button>
@@ -332,13 +332,26 @@ export default function TileDetailsPanel({
               <button
                 type="button"
                 onClick={() => setEditingActionId('new')}
-                className="w-full text-sm py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-[#005EB8] hover:text-[#005EB8] transition-colors"
+                className="w-full text-sm py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
               >
                 + Add action
               </button>
             )}
           </div>
         </section>
+      </div>
+
+      {/* Display settings */}
+      <div className="px-5 py-3 border-t border-gray-100 flex-shrink-0">
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!(details.hideFreshnessFooter ?? false)}
+            onChange={(e) => set('hideFreshnessFooter', !e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span className="text-xs text-gray-600">Show data freshness footer</span>
+        </label>
       </div>
 
       {/* Footer */}
@@ -353,7 +366,7 @@ export default function TileDetailsPanel({
         <button
           type="button"
           onClick={() => { onSave(details); onClose(); }}
-          className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium transition-colors"
+          className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
         >
           Save details
         </button>

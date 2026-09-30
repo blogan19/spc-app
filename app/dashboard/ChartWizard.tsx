@@ -196,10 +196,10 @@ function Recommendation({ chartKind, title, reason, icon, onUse, onBack, onBrows
   const extra = CHART_MORE_INFO[chartKind];
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-start gap-4 p-5 bg-blue-50 border border-blue-200 rounded-xl">
+      <div className="flex items-start gap-4 p-5 bg-indigo-50 border border-blue-200 rounded-xl">
         <span className="text-4xl flex-shrink-0">{icon}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#005EB8] mb-1">Recommended</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 mb-1">Recommended</p>
           <h3 className="text-base font-semibold text-gray-900 mb-2">{title}</h3>
           <p className="text-sm text-gray-700 leading-relaxed">{reason}</p>
           {extra && (
@@ -212,7 +212,7 @@ function Recommendation({ chartKind, title, reason, icon, onUse, onBack, onBrows
         <button
           type="button"
           onClick={onUse}
-          className="flex-1 py-2.5 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium text-sm transition-colors"
+          className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm transition-colors"
         >
           Use this chart →
         </button>
@@ -255,6 +255,7 @@ export default function ChartWizard({ onSelect, onBrowse, onClose }: ChartWizard
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
@@ -275,7 +276,7 @@ export default function ChartWizard({ onSelect, onBrowse, onClose }: ChartWizard
                   <span
                     key={i}
                     className={`h-1 rounded-full transition-all ${
-                      i === history.length - 1 ? 'w-4 bg-[#005EB8]' : 'w-1 bg-gray-200'
+                      i === history.length - 1 ? 'w-4 bg-indigo-600' : 'w-1 bg-gray-200'
                     }`}
                   />
                 ))}
@@ -303,25 +304,25 @@ export default function ChartWizard({ onSelect, onBrowse, onClose }: ChartWizard
                     type="button"
                     onClick={() => handleOption(opt.id)}
                     className="w-full text-left flex items-start gap-3 p-3.5 rounded-xl border border-gray-200
-                               hover:border-[#005EB8] hover:bg-blue-50/50 transition-all group"
+                               hover:border-indigo-400 hover:bg-indigo-50 transition-all group"
                   >
                     {opt.icon && <span className="text-xl flex-shrink-0 mt-0.5">{opt.icon}</span>}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 group-hover:text-[#005EB8] leading-snug">
+                      <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 leading-snug">
                         {opt.label}
                       </p>
                       {opt.description && (
                         <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{opt.description}</p>
                       )}
                     </div>
-                    <span className="text-gray-300 group-hover:text-[#005EB8] group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-0.5">
+                    <span className="text-gray-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-0.5">
                       →
                     </span>
                   </button>
                 ))}
               </div>
               <div className="mt-4 text-center">
-                <button type="button" onClick={onBrowse} className="text-xs text-gray-400 hover:text-[#005EB8] transition-colors">
+                <button type="button" onClick={onBrowse} className="text-xs text-gray-400 hover:text-indigo-600 transition-colors">
                   Browse all chart types instead
                 </button>
               </div>

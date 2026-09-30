@@ -83,7 +83,14 @@ export default function WalkthroughOverlay({ walkthrough, onComplete, onSkip }: 
   const cardStyle = computeCardStyle(targetRect, placement);
 
   return (
-    <div className="fixed inset-0 z-[200]" aria-modal="true" role="dialog" aria-label={walkthrough.name}>
+    <div
+      className="fixed inset-0 z-[200]"
+      onClick={isSpotlight ? undefined : skip}
+      style={{ pointerEvents: isSpotlight ? 'none' : 'auto' }}
+      aria-modal="true"
+      role="dialog"
+      aria-label={walkthrough.name}
+    >
 
       {/* Backdrop — full-screen dim when no spotlight, or click-to-skip */}
       {!isSpotlight && (
@@ -108,16 +115,16 @@ export default function WalkthroughOverlay({ walkthrough, onComplete, onSkip }: 
         />
       )}
 
-      {/* Tooltip card */}
+      {/* Tooltip card — pointer-events:auto overrides parent none in spotlight mode; stopPropagation prevents bubble to outer skip handler in center mode */}
       <div
-        style={{ ...cardStyle, width: CARD_W, zIndex: 201 }}
+        style={{ ...cardStyle, width: CARD_W, zIndex: 201, pointerEvents: 'auto' }}
         className="bg-white rounded-2xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Progress bar */}
         <div className="h-1 bg-slate-100">
           <div
-            className="h-full bg-[#005EB8] transition-all duration-300"
+            className="h-full bg-indigo-600 transition-all duration-300"
             style={{ width: `${((stepIdx + 1) / walkthrough.steps.length) * 100}%` }}
           />
         </div>
@@ -149,9 +156,9 @@ export default function WalkthroughOverlay({ walkthrough, onComplete, onSkip }: 
                   key={i}
                   className={`rounded-full transition-all duration-200 ${
                     i === stepIdx
-                      ? 'w-4 h-1.5 bg-[#005EB8]'
+                      ? 'w-4 h-1.5 bg-indigo-600'
                       : i < stepIdx
-                        ? 'w-1.5 h-1.5 bg-[#005EB8]/40'
+                        ? 'w-1.5 h-1.5 bg-indigo-600/40'
                         : 'w-1.5 h-1.5 bg-slate-200'
                   }`}
                 />
@@ -169,7 +176,7 @@ export default function WalkthroughOverlay({ walkthrough, onComplete, onSkip }: 
               <button
                 type="button"
                 onClick={next}
-                className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#005EB8] text-white hover:bg-[#004da0] transition-colors"
+                className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
               >
                 {isLast ? 'Done ✓' : 'Next →'}
               </button>

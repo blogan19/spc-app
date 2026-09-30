@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -139,7 +139,7 @@ export default function DashParetoChart({
 
     g.append('g')
       .call(yLeftAxis)
-      .attr('font-size', 10)
+      .attr('font-size', 12)
       .call((ax) => ax.select('.domain').remove())
       .call((ax) => ax.selectAll('.tick line').attr('stroke', '#e5e7eb'));
 
@@ -152,7 +152,7 @@ export default function DashParetoChart({
     g.append('g')
       .attr('transform', `translate(${innerW},0)`)
       .call(yRightAxis)
-      .attr('font-size', 10)
+      .attr('font-size', 12)
       .call((ax) => ax.select('.domain').remove())
       .call((ax) => ax.selectAll('.tick line').remove());
 
@@ -161,7 +161,7 @@ export default function DashParetoChart({
     g.append('g')
       .attr('transform', `translate(0,${innerH})`)
       .call(d3.axisBottom(xScale).tickSize(0))
-      .attr('font-size', 9)
+      .attr('font-size', 11)
       .call((ax) => ax.select('.domain').attr('stroke', '#e5e7eb'))
       .selectAll('.tick text')
       .text((d) => {
@@ -178,7 +178,7 @@ export default function DashParetoChart({
         .attr('x', -innerH / 2)
         .attr('y', -ml + 12)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .text(yLabel || (showPercentage ? 'Percentage' : 'Count'));
     }

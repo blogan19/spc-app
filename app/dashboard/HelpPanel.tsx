@@ -38,7 +38,7 @@ function ArticleView({ article, onBack }: { article: HelpArticle; onBack: () => 
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
         <h2 className="text-base font-bold text-slate-900 leading-snug">{article.title}</h2>
-        <p className="text-xs text-slate-500 leading-relaxed border-l-2 border-[#005EB8]/30 pl-3">{article.summary}</p>
+        <p className="text-xs text-slate-500 leading-relaxed border-l-2 border-indigo-500/30 pl-3">{article.summary}</p>
 
         {article.sections.map((section, i) => (
           <div key={i} className="space-y-1.5">
@@ -80,7 +80,7 @@ export default function HelpPanel({ initialArticleId, onClose }: Props) {
 
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-3 flex-shrink-0">
-          <div className="w-7 h-7 rounded-full bg-[#005EB8]/10 text-[#005EB8] flex items-center justify-center flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
             <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
               <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a1 1 0 110 2 1 1 0 010-2zm0 3.5c.55 0 1 .45 1 1V11a1 1 0 01-2 0V8.5c0-.55.45-1 1-1z"/>
             </svg>
@@ -123,7 +123,7 @@ export default function HelpPanel({ initialArticleId, onClose }: Props) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search articles…"
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#005EB8] focus:border-[#005EB8] bg-slate-50 placeholder:text-slate-400"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 placeholder:text-slate-400"
                   autoFocus
                 />
               </div>
@@ -148,7 +148,7 @@ export default function HelpPanel({ initialArticleId, onClose }: Props) {
                         onClick={() => setSelectedId(article.id)}
                         className="w-full text-left px-5 py-3.5 hover:bg-slate-50 transition-colors group"
                       >
-                        <p className="text-sm font-medium text-slate-800 group-hover:text-[#005EB8] transition-colors leading-snug mb-0.5">
+                        <p className="text-sm font-medium text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug mb-0.5">
                           {article.title}
                         </p>
                         <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{article.summary}</p>

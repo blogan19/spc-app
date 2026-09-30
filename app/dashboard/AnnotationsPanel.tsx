@@ -40,7 +40,7 @@ export default function AnnotationsPanel({ annotationIds, annotations, onChange 
                 type="checkbox"
                 checked={active}
                 onChange={() => toggle(ann.id)}
-                className="rounded border-gray-300 focus:ring-[#005EB8]"
+                className="rounded border-gray-300 focus:ring-indigo-500"
                 style={{ accentColor: ann.color }}
               />
               <span

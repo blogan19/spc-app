@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -188,7 +188,7 @@ export default function DashPieChart({
         .attr('x', swatchSize + 5)
         .attr('y', rowY + swatchSize / 2)
         .attr('dominant-baseline', 'central')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#374151')
         .text(truncated);
     });

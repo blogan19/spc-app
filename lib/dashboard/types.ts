@@ -43,7 +43,7 @@ export interface Dataset {
   transformLog?: TransformLogEntry[];
 }
 
-export type TileKind = 'spc' | 'kpi' | 'text' | 'bar' | 'line' | 'table' | 'image' | 'run' | 'pareto' | 'heatmap' | 'calendar' | 'pie' | 'area' | 'scatter' | 'funnel' | 'gantt' | 'waterfall' | 'pyramid' | 'boxplot' | 'title' | 'section' | 'scorecard';
+export type TileKind = 'spc' | 'kpi' | 'text' | 'bar' | 'line' | 'table' | 'image' | 'run' | 'pareto' | 'heatmap' | 'calendar' | 'pie' | 'area' | 'scatter' | 'funnel' | 'gantt' | 'waterfall' | 'pyramid' | 'boxplot' | 'title' | 'section' | 'scorecard' | 'divider' | 'gauge' | 'treemap' | 'sankey';
 
 export type ActionStatus = 'not-started' | 'in-progress' | 'complete';
 
@@ -62,6 +62,7 @@ export interface TileDetails {
   targetDirection: 'higher' | 'lower' | 'range';
   targetDate: string;   // YYYY-MM-DD or ''
   actions: TileAction[];
+  hideFreshnessFooter?: boolean;
 }
 
 export interface SpcTileConfig {
@@ -77,6 +78,9 @@ export interface KpiTileConfig {
   higherIsBetter: boolean;
   ragRuleId?: string;
   metricId?: string;    // references a MetricDef; drives propagation when metric is updated
+  bgColor?: string;     // custom tile background (overrides RAG colour when set)
+  valueColor?: string;  // number text colour
+  labelColor?: string;  // label/unit text colour
 }
 
 export type ReviewFrequency = 'weekly' | 'monthly' | 'quarterly';
@@ -174,6 +178,8 @@ export interface HeatmapTileConfig {
   title: string;
   colorScheme: HeatmapColorScheme;
   showValues: boolean;
+  domainMin?: number;    // optional fixed colour scale minimum (leave undefined for auto)
+  domainMax?: number;    // optional fixed colour scale maximum
 }
 
 export interface ParetoTileConfig {
@@ -312,7 +318,43 @@ export interface ScorecardTileConfig {
   rowConfigs: ScorecardRowConfig[];
 }
 
-export type TileConfig = SpcTileConfig | KpiTileConfig | TextTileConfig | BarTileConfig | LineTileConfig | DataTableTileConfig | ImageTileConfig | RunTileConfig | ParetoTileConfig | HeatmapTileConfig | CalendarHeatmapTileConfig | PieTileConfig | AreaTileConfig | ScatterTileConfig | FunnelTileConfig | GanttTileConfig | WaterfallTileConfig | PyramidTileConfig | BoxPlotTileConfig | TitleTileConfig | SectionTileConfig | ScorecardTileConfig;
+export interface DividerTileConfig {
+  label: string;
+  color: string;                           // line colour
+  thickness: number;                       // 1–4 px
+  labelPosition: 'left' | 'center' | 'right';
+}
+
+export interface GaugeTileConfig {
+  label: string;
+  value: number | null;
+  minValue: number;
+  maxValue: number;
+  unit: string;
+  greenThreshold: number;    // value boundary between green and amber zones
+  amberThreshold: number;    // value boundary between amber and red zones
+  higherIsBetter: boolean;   // true = high end is green; false = low end is green
+}
+
+export interface TreemapTileConfig {
+  datasetId: string;
+  labelColumn: string;
+  valueColumn: string;
+  groupColumn: string;   // optional parent grouping — empty = flat
+  title: string;
+  colors: string[];
+}
+
+export interface SankeyTileConfig {
+  datasetId: string;
+  sourceColumn: string;
+  targetColumn: string;
+  valueColumn: string;   // empty = count rows
+  title: string;
+  colors: string[];
+}
+
+export type TileConfig = SpcTileConfig | KpiTileConfig | TextTileConfig | BarTileConfig | LineTileConfig | DataTableTileConfig | ImageTileConfig | RunTileConfig | ParetoTileConfig | HeatmapTileConfig | CalendarHeatmapTileConfig | PieTileConfig | AreaTileConfig | ScatterTileConfig | FunnelTileConfig | GanttTileConfig | WaterfallTileConfig | PyramidTileConfig | BoxPlotTileConfig | TitleTileConfig | SectionTileConfig | ScorecardTileConfig | DividerTileConfig | GaugeTileConfig | TreemapTileConfig | SankeyTileConfig;
 
 export interface DrillThrough {
   enabled: boolean;
@@ -359,10 +401,21 @@ export interface DashboardTile {
   h: number;
 }
 
+export interface DashboardHeader {
+  enabled: boolean;
+  title: string;
+  subtitle?: string;
+  logoDataUrl?: string;
+  bgColor: string;
+  textColor: string;
+  subtitleColor?: string;
+}
+
 export interface Dashboard {
   title: string;
   theme: DashboardTheme;
   tiles: DashboardTile[];
+  header?: DashboardHeader;
 }
 
 export interface RagRule {

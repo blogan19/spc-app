@@ -13,89 +13,175 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The vitest config lives at `vitest.config.mts` (the `.mts` extension is required — `vitest@^4` is ESM-only and `.ts` won't load).
 
+### Database commands
+
+- `docker compose up -d` — start local PostgreSQL 16 (or use the locally-installed PostgreSQL 13)
+- `npx prisma db push` — push schema to DB (no migration files; dev-mode only)
+- `npx prisma generate` — regenerate the Prisma client after schema changes
+- `npx prisma studio` — browser-based DB viewer at http://localhost:5555
+
 ## Project intent
 
-SPC (Statistical Process Control) / quality-improvement web app aimed at non-statisticians in healthcare and operational improvement, following NHS "Making Data Count" guidance. The vision is captured in `spc_app_build_plan-1.md` and `spc_app_build_plan-2.md`. Most of the v2 plan is now implemented (XmR, Run, P/C/U, Pareto, Funnel charts; sub-process splits; aim statements; drivers; PDSA cycles; cause-and-effect; process maps; incident analysis; lagged correlation; narrative theme clustering; driver-linked auto-annotation). Geographic clustering and Phase 6 (collaboration / exports) are still open.
+SPC (Statistical Process Control) / quality-improvement web app aimed at non-statisticians in healthcare and operational improvement, following NHS "Making Data Count" guidance. The product has two distinct areas:
+
+1. **SPC chart builder** (`/` and `/chart`) — the original free-chart tool. Ephemeral, no auth required.
+2. **NHS BI Dashboard** (`/dashboard`) — a multi-chart dashboard builder. Auth-gated, cloud-persisted per user. Covers every chart type in `EXPANSION_SPEC.md`.
 
 ## Architecture
 
-Next.js 14 App Router with **localStorage persistence** under a single local keyspace. No auth, no backend — every project lives in the user's browser.
+Next.js 14 App Router. The dashboard is backed by **PostgreSQL via Prisma** with **NextAuth v5** authentication. The SPC free chart remains ephemeral (no backend).
 
 ### Routes
 
 ```
 /                       Public, ephemeral single-measure SPC view (the "free chart").
                         State lives only in component useState; nothing is saved.
-                        Amber banner across the top hints that work isn't persisted —
-                        head to /projects to keep results.
-/projects               Lists projects from localStorage with create / open / rename /
-                        delete. Server stub renders ProjectsList (client).
-/projects/[id]          Loads the project by id, autosaves edits on a 400 ms debounce,
-                        renders ProjectWorkspace. ProjectShell handles hydration,
-                        missing-project state, and the save-status indicator.
+/chart                  Alternate entry for the free SPC chart.
+/auth/signin            Sign-in page — Microsoft (NHS primary), Google, email magic link.
+/auth/error             Auth error landing page.
+/dashboard              Dashboard list (server component, auth-gated). Shows all dashboards
+                        for the signed-in user; create / delete from here.
+/dashboard/[id]         Specific dashboard workspace (server component, auth-gated).
+                        Loads DashboardState from Postgres, renders DashboardWorkspace.
+                        Autosaves on 400 ms debounce via useDashboardAutosave hook.
+/dashboard/view         Public read-only shared view. Accepts compressed DashboardState
+                        in the ?d= query param (client-side decompression, no auth).
 ```
 
-### State and persistence
+### Authentication — NextAuth v5
 
-- **`lib/project/store.ts`** — pure localStorage layer. Storage keys are `spc:index:local` (a `ProjectSummary[]` for the list view) and `spc:project:local:<id>` (the full Project). `listProjects`, `getProject`, `saveProject`, `deleteProject`, `createProject`, `renameProject`. All functions are no-ops when called server-side (`typeof window === 'undefined'`). The `local` scope is hard-coded — the previous Clerk-userId scoping has been removed.
-- **`lib/project/useProjectAutosave.ts`** — debounced autosave hook used by `ProjectShell`. Hydrates from localStorage, exposes `setProject` like `useState`, writes back after 400 ms of inactivity. A `pending` ref + cleanup effect flushes the last edit synchronously on unmount so navigation never drops the final change. Status is `loading` → `saved` → `saving` → `saved`.
-- **No backend**. Moving to one is a swap of `lib/project/store.ts`; the import surface (`listProjects` / `getProject` / `saveProject` / etc.) is the seam.
+Config lives in **`auth.ts`** at the project root. Exports `{ handlers, auth, signIn, signOut }`.
 
-### Workspace component tree
+- **Providers**: Resend (email magic link), Microsoft Entra ID, Google
+- **Adapter**: `@auth/prisma-adapter` — sessions stored in PostgreSQL
+- **Session strategy**: database (not JWT); session includes `user.id` via the `session` callback
+- **Middleware** (`middleware.ts`) — protects `/dashboard/*` and `/api/dashboards/*`. The `/dashboard/view` path is explicitly bypassed (public shared links). Unauthenticated requests redirect to `/auth/signin`.
+- **Type augmentation** — `next-auth.d.ts` adds `id: string` to `Session['user']`
 
-`ProjectWorkspace` is the root of the in-project UI. It owns the Project state passed in by `ProjectShell` and the active-measure id. All mutations flow as: child component → callback → operation function in `lib/project/operations.ts` (pure, returns a new Project) → `setProject(next)`. Children are dumb; they only render and emit callbacks.
-
+Environment variables (see `.env.local.example`):
 ```
-ProjectShell                       app/projects/[id]/ProjectShell.tsx
-  useProjectAutosave (hydrate + autosave + status)
-  ProjectWorkspace                 app/spc/ProjectWorkspace.tsx
-    Top nav (← SPC, project name, save-status pill)
-    AimEditor
-    View tabs: Measures / Drivers / PDSA / Cause-effect / Process map / Incidents / Correlation
-    <active view>
-      MeasureView (measure tabs + chart + controls + editor)
-        MeasureChartCard → LineChart (spc.jsx) | ParetoChart | FunnelChart
-        MeasureEditor (tabular data editor + AppearanceForm)
-      DriverDiagramView
-      PDSALog
-      IshikawaView
-      ProcessMapView
-      IncidentsView
-      CorrelationView
+DATABASE_URL            PostgreSQL connection string
+AUTH_SECRET             Random secret for session signing — generate with: npx auth secret
+AUTH_RESEND_KEY         Resend API key (email magic links)
+AUTH_RESEND_FROM        Sender address, e.g. noreply@auxtechna.com
+AUTH_MICROSOFT_ENTRA_ID_ID       Azure app client ID
+AUTH_MICROSOFT_ENTRA_ID_SECRET   Azure app client secret
+AUTH_MICROSOFT_ENTRA_ID_TENANT_ID  "organizations" for all work accounts, or a specific tenant GUID
+AUTH_GOOGLE_ID          Google OAuth client ID
+AUTH_GOOGLE_SECRET      Google OAuth client secret
 ```
 
-`ProjectWorkspace` accepts two optional shell props: `navRight` (rendered in the top nav, used for the save indicator) and `showBackToProjects` (makes the "SPC" brand link to `/projects`). The free chart at `/` does NOT use ProjectWorkspace — it embeds `MeasureView` directly with a single-measure ephemeral project.
+Providers with empty/missing env vars are silently skipped by NextAuth at runtime — you can configure them incrementally.
+
+### Database — Prisma + PostgreSQL
+
+Schema at **`prisma/schema.prisma`**. Models:
+
+| Model | Purpose |
+|---|---|
+| `User` | NextAuth user record |
+| `Account` | OAuth provider link per user |
+| `Session` | DB-backed session (NextAuth) |
+| `VerificationToken` | Magic-link tokens |
+| `Dashboard` | One row per dashboard; `state Json` holds the full serialised `DashboardState` |
+
+The `Dashboard.state` column stores the entire `DashboardState` object as PostgreSQL JSON. This includes datasets (rows), charts, tiles, theme, annotations, stories, and slide decks. Cast it with `as unknown as DashboardState` when reading back.
+
+Prisma client singleton: **`lib/prisma.ts`** — standard global-for-hot-reload pattern.
+
+**Dev workflow**: use `prisma db push` (no migration files) during active development. Switch to `prisma migrate dev` before the first production deployment.
+
+### Dashboard persistence
+
+`DashboardWorkspace` receives `dashboardId: string` and `initialState: DashboardState` as props (passed from the server component at `/dashboard/[id]/page.tsx` which fetches from Postgres directly).
+
+**`lib/dashboard/useDashboardAutosave.ts`** — debounce hook:
+- Initialises from `initialState`, skips the first-mount save
+- On any subsequent `setState` call, debounces 400 ms then PUTs to `/api/dashboards/[id]`
+- Returns `{ state, setState, saveStatus }` where `saveStatus` is `'saved' | 'saving'`
+- `setState` has the same `Dispatch<SetStateAction<DashboardState>>` signature as React's `useState` setter — all existing call sites in DashboardWorkspace work unchanged
+
+### Dashboard API routes
+
+All routes live under `app/api/dashboards/`. All are auth-gated via `await auth()`.
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/dashboards` | GET | List all dashboards for the current user |
+| `/api/dashboards` | POST | Create a new empty dashboard, return `{ id }` |
+| `/api/dashboards/[id]` | GET | Fetch one dashboard (ownership checked) |
+| `/api/dashboards/[id]` | PUT | Autosave — update `state` and `title` |
+| `/api/dashboards/[id]` | DELETE | Delete (ownership checked) |
+
+### Dashboard component tree
+
+```
+app/dashboard/page.tsx              Server component — fetches dashboard list, renders DashboardList
+app/dashboard/[id]/page.tsx         Server component — fetches DashboardState from DB, renders DashboardWorkspace
+  DashboardWorkspace                Client component — owns all UI state
+    useDashboardAutosave            Debounced PUT to /api/dashboards/[id]
+    DatasetManager
+    TileGrid
+      TileRenderer (per tile)
+        DashHeatmapChart | DashScorecardChart | DashLineChart | ... (all chart variants)
+    <editor modals>                 Full-screen editors: HeatmapTileEditor, ScorecardTileEditor, etc.
+    <panels>                        ThemePanel, RagRulesPanel, MetricLibraryPanel, etc.
+    PresentationMode / SlidedeckMode
+app/dashboard/DashboardList.tsx     Client component — card grid, create / delete
+app/dashboard/view/page.tsx         Public read-only view (URL-encoded compressed state)
+```
+
+### Dashboard tile types (`lib/dashboard/types.ts`)
+
+`TileKind`: `spc | kpi | text | bar | line | table | image | run | pareto | heatmap | calendar | pie | area | scatter | funnel | gantt | waterfall | pyramid | boxplot | title | section | scorecard`
+
+Each kind has a corresponding `*TileConfig` interface and a `*TileEditor` component. `TileRenderer` dispatches on `chart.type` to render the correct chart component.
+
+### DashboardState shape
+
+```ts
+{
+  version: '2.0';
+  exportedAt: string;
+  datasets: Dataset[];          // uploaded CSVs with rows, columns, transformLog
+  charts: ChartConfig[];        // chart definitions (type + config + drillThrough)
+  dashboard: {
+    title: string;
+    tiles: DashboardTile[];     // { id, chartId, x, y, w, h }
+    theme: DashboardTheme;
+  };
+  ragRules: RagRule[];
+  metrics: MetricDef[];
+  annotations: AnnotationDef[];
+  stories: Story[];             // Presentation Mode 1 stories
+  slideDecks: SlideDeck[];      // Presentation Mode 2 slide decks
+}
+```
+
+JSON import/export (`lib/dashboard/io.ts`) round-trips this shape. Snapshots are the same shape with additional `snapshotName/Notes/TakenAt` fields. The `version: '2.0'` guard rejects legacy SPC-only files.
+
+---
 
 ### Where the SPC maths lives
 
-All SPC statistics moved out of `spc.jsx` into a pure functional library under `lib/spc/`. The chart component now consumes precomputed analyses; it does not segment, derive limits, or detect rules.
+All SPC statistics live in a pure functional library under `lib/spc/`. The chart component consumes precomputed analyses; it does not segment, derive limits, or detect rules.
 
-- **`lib/spc/index.ts`** — entry point. `analyseSpc(rows, { kind })` dispatches on chart kind and returns `{ analysis, plottedRows }`. `plottedRows` is what the chart plots on the y-axis: same as input for XmR/RunChart, proportion = numerator/denominator for P, etc.
-- **`lib/spc/xmr.ts`** — mean, median, moving ranges, **XmR limits via mR̄ / 1.128** (the MDC recipe, replacing the previous stdev-based limits).
-- **`lib/spc/segments.ts`** — segments the row series at every `recalculate === true` boundary, computes per-segment mean/median/UCL/LCL, then projects them onto each row as `pointLimits`.
-- **`lib/spc/rules.ts`** — four MDC variation rules: (1) single point outside limits, (2) 7+ on the same side of the mean, (3) 7+ in a row trending in one direction, (4) 2 of 3 consecutive in the outer third. For run charts (no limits), rule 1 is skipped and rules 2/3/4 use the median + sign-aware logic.
-- **`lib/spc/pchart.ts`**, **`lib/spc/count.ts`** — P/C/U attribute charts (Poisson / binomial limits).
-- **`lib/spc/pareto.ts`**, **`lib/spc/funnel.ts`** — categorical "chart kinds" (Pareto descending bars + cumulative %; Funnel cross-unit comparison with Poisson limits).
-- **`lib/spc/correlation.ts`** — Pearson + lagged cross-correlation for the Correlation view. Convention: `ccf(x,y)_k = corr(x_t, y_{t+k})`, so lag = +k means x leads y.
-- **`lib/spc/icons.ts`** — derives the MDC variation + assurance icons from analysis + aim + target.
+- **`lib/spc/index.ts`** — entry point. `analyseSpc(rows, { kind })` dispatches on chart kind and returns `{ analysis, plottedRows }`.
+- **`lib/spc/xmr.ts`** — mean, median, moving ranges, XmR limits via mR̄ / 1.128 (MDC recipe).
+- **`lib/spc/segments.ts`** — segments the row series at every `recalculate === true` boundary, computes per-segment mean/median/UCL/LCL.
+- **`lib/spc/rules.ts`** — four MDC variation rules. Run chart: rule 1 skipped, rules 2/3/4 use median + sign-aware logic.
+- **`lib/spc/pchart.ts`**, **`lib/spc/count.ts`** — P/C/U attribute charts.
+- **`lib/spc/pareto.ts`**, **`lib/spc/funnel.ts`** — Pareto and Funnel chart kinds.
+- **`lib/spc/correlation.ts`** — Pearson + lagged cross-correlation. Convention: lag = +k means x leads y.
+- **`lib/spc/icons.ts`** — MDC variation + assurance icons from analysis + aim + target.
 
-`SpcAnalysis` (in `lib/spc/types.ts`) is the contract between the maths layer and the chart: `{ kind, segments, pointLimits, rules }`.
+`SpcAnalysis` (in `lib/spc/types.ts`) is the contract between the maths layer and the chart.
 
 ### The chart component (`app/spc/spc.jsx`)
 
-Still imperative D3 inside a `useEffect`, but now stateless w.r.t. maths. It receives:
+Still imperative D3 inside a `useEffect`. It receives `params.data` (MeasureRow[]), `params.chartKind`, `params.aim`, `params.target`, and `params.events` (driver-linked incident markers). Uses `useRef` + `d3.select(...).selectAll('*').remove()` on each render — do not switch to JSX-driven D3 without removing that imperative clear first.
 
-- `params.data` — `MeasureRow[]` (the editor's row shape; see below)
-- `params.chartKind`, `params.aim`, `params.target`, plus everything from `measure.settings`
-- `params.events` — optional `Array<{ date, label }>` of driver-linked incident markers (rendered as thin red dashed verticals with a label box at the top)
-
-It still uses `useRef` + `d3.select(...).selectAll('*').remove()` to wipe the SVG on each render — do not switch to a JSX-driven D3 approach without first removing that imperative clear.
-
-The old `calculateOutliers` quirks (prop mutation, the chartData state loop) are gone. The chart no longer schedules state updates inside the same effect that reads them.
-
-### Row shape
-
-The MeasureEditor row shape (used everywhere data crosses the form/chart boundary):
+### Row shape (SPC)
 
 ```js
 { date: "YYYY-MM-DD",
@@ -105,22 +191,43 @@ The MeasureEditor row shape (used everywhere data crosses the form/chart boundar
 }
 ```
 
-`value` and `denominator` stay strings because the editor uses contentEditable cells; they are coerced via `Number(...)` at calculation sites. `comment.recalculate` drives phase segmentation — set it on the first row of a new phase. Pareto/Funnel overload `date` as the category/unit label (the chart kind is in `measure.chartKind`).
-
-### Driver-linked auto-annotation
-
-When a change-idea leaf in the driver diagram has both `measureId` and `linkedIncidentType` set, `collectIncidentEventsForMeasure(project, measureId)` (in `lib/project/incidents.ts`) walks the diagram, collects incidents of that type from `project.incidentDataset`, aggregates them by date, and returns `{ date, label }[]`. `MeasureView` computes this with `useMemo`, threads it through `MeasureChartCard`, and the chart paints a marker per event. This stitches the driver diagram (hypothesis layer) to the measure chart (test layer).
+---
 
 ## Conventions
 
-- **Mixed `.tsx` and `.jsx`** — `allowJs: true`, `strict: false` (see `tsconfig.json`). Newer SPC components are TS; older ones (`spc.jsx`, `AppearanceForm.jsx`, `MeasureEditor.jsx`, the chart helpers) stayed JS and rely on loose typing. Use TS for new files.
+- **Mixed `.tsx` and `.jsx`** — `allowJs: true`, `strict: false` (see `tsconfig.json`). Newer components are TS; `spc.jsx`, `AppearanceForm.jsx`, `MeasureEditor.jsx` and the chart helpers stayed JS. Use TS for new files.
 - **Path alias** `@/*` maps to the project root.
 - **Tailwind utility classes** only.
-- **Pure operations layer** — every Project mutation goes through `lib/project/operations.ts` (and friends like `lib/project/incidents.ts`). Operations return new Projects; never mutate. UI components do not transform Project state inline.
-- **Tests live alongside source** — `foo.ts` next to `foo.test.ts`. There are ~200 tests covering the maths libraries and the operations layer; UI is not unit-tested.
-- **No real persistence backend** — anything that needs to survive across devices needs to wait until `lib/project/store.ts` is swapped for a backend. The hook surface is intentionally narrow.
-- **`app/components/header.tsx`** is still empty/unused. Don't add to it without a reason.
+- **Server components** for data-fetching pages (`/dashboard/page.tsx`, `/dashboard/[id]/page.tsx`) — call `auth()` and Prisma directly, no fetch overhead.
+- **Client components** for all interactive UI — `'use client'` at the top.
+- **Server actions** for auth flows — `signIn(provider, { redirectTo })` called inside inline `async function` tagged `'use server'` within JSX forms.
+- **Pure operations layer** — every Project mutation goes through `lib/project/operations.ts`. Operations return new state; never mutate. Dashboard mutations happen inline via `setState` in DashboardWorkspace (no separate operations layer for the dashboard).
+- **Tests live alongside source** — `foo.ts` next to `foo.test.ts`. ~200 tests cover SPC maths and project operations. UI and dashboard are not unit-tested.
+- **`app/components/header.tsx`** is still empty/unused. Don't add to it.
 
 ## Environment
 
-- No environment variables required. The app boots straight to the free chart on `/` and the workspace on `/projects` without any setup. Auth (Clerk) was removed; if it comes back later the seams to restore are `app/layout.tsx` (provider), `middleware.ts` (deleted — would gate `/projects`), and the userId arg on `lib/project/store.ts` (currently hard-coded to `'local'`).
+### Required for dashboard
+
+```
+DATABASE_URL     PostgreSQL — local Docker or Azure PostgreSQL Flexible Server (UK South for prod)
+AUTH_SECRET      Random 32+ char string — run `npx auth secret` to generate
+```
+
+### Optional (auth providers — app still boots without these)
+
+```
+AUTH_RESEND_KEY / AUTH_RESEND_FROM    Email magic links via Resend
+AUTH_MICROSOFT_ENTRA_ID_*             Microsoft / NHS work accounts
+AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET   Google OAuth
+```
+
+### Local setup
+
+```bash
+docker compose up -d          # start PostgreSQL 16 (or use local PG 13)
+npx prisma db push            # create tables
+npm run dev                   # start dev server on :3030
+```
+
+Copy `.env.local.example` → `.env.local` and fill in `DATABASE_URL` and `AUTH_SECRET` at minimum. The app boots without OAuth providers configured; sign-in will just show no buttons for unconfigured providers.

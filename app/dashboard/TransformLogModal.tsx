@@ -8,7 +8,7 @@ interface TransformLogModalProps {
 }
 
 const CATEGORY_BADGE: Record<TransformLogEntry['category'], { label: string; cls: string }> = {
-  IMPORT:          { label: 'Import',        cls: 'bg-blue-100 text-blue-700' },
+  IMPORT:          { label: 'Import',        cls: 'bg-blue-100 text-indigo-700' },
   COLUMN_TYPES:    { label: 'Column types',  cls: 'bg-purple-100 text-purple-700' },
   NUMERIC_PARSING: { label: 'Numeric',       cls: 'bg-emerald-100 text-emerald-700' },
   MISSING_VALUES:  { label: 'Missing data',  cls: 'bg-amber-100 text-amber-700' },
@@ -21,6 +21,7 @@ export default function TransformLogModal({ dataset, onClose }: TransformLogModa
   return (
     <div className="absolute inset-0 bg-black/60 flex items-start justify-center pt-8 p-4 z-20">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[80vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Transformation log</h3>

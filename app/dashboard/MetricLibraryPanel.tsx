@@ -141,7 +141,7 @@ function MetricForm({
               onClick={() => set({ targetDirection: o.value })}
               className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
                 m.targetDirection === o.value
-                  ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium'
+                  ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
                   : 'border-gray-300 text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -191,7 +191,7 @@ function MetricForm({
           type="button"
           disabled={!m.name.trim()}
           onClick={() => onSave(m)}
-          className="flex-1 text-xs py-1.5 rounded-lg bg-[#005EB8] text-white font-medium hover:bg-[#003087] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 text-xs py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Save metric
         </button>
@@ -239,6 +239,7 @@ export default function MetricLibraryPanel({ metrics, ragRules, onChange, onClos
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 px-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
@@ -316,7 +317,7 @@ export default function MetricLibraryPanel({ metrics, ragRules, onChange, onClos
                       <button
                         type="button"
                         onClick={() => setEditingId(metric.id)}
-                        className="text-xs text-[#005EB8] hover:underline"
+                        className="text-xs text-indigo-600 hover:underline"
                       >
                         Edit
                       </button>
@@ -344,7 +345,7 @@ export default function MetricLibraryPanel({ metrics, ragRules, onChange, onClos
                   type="button"
                   onClick={() => setEditingId('new')}
                   className="w-full text-sm py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400
-                             hover:border-[#005EB8] hover:text-[#005EB8] transition-colors"
+                             hover:border-indigo-400 hover:text-indigo-600 transition-colors"
                 >
                   + Add custom metric
                 </button>
@@ -370,18 +371,18 @@ export default function MetricLibraryPanel({ metrics, ragRules, onChange, onClos
                       key={m.id}
                       type="button"
                       onClick={() => addNhsMetric(m)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-200 hover:border-[#005EB8] hover:bg-blue-50 transition-colors text-left group"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left group"
                     >
-                      <span className="text-sm font-bold text-gray-300 group-hover:text-[#005EB8] w-5 text-center flex-shrink-0">
+                      <span className="text-sm font-bold text-gray-300 group-hover:text-indigo-600 w-5 text-center flex-shrink-0">
                         {dirIcon(m.targetDirection)}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 group-hover:text-[#005EB8]">{m.name}</p>
+                        <p className="text-sm font-medium text-gray-700 group-hover:text-indigo-600">{m.name}</p>
                         <p className="text-xs text-gray-400">
                           {m.unit}{m.targetValue != null ? ` · Target: ${m.targetValue}${m.unit}` : ''} · {m.dataSourceHint}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-300 group-hover:text-[#005EB8] flex-shrink-0">+ Add</span>
+                      <span className="text-xs text-gray-300 group-hover:text-indigo-600 flex-shrink-0">+ Add</span>
                     </button>
                   ))}
                 </div>
@@ -394,7 +395,7 @@ export default function MetricLibraryPanel({ metrics, ragRules, onChange, onClos
           <button
             type="button"
             onClick={onClose}
-            className="w-full text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium transition-colors"
+            className="w-full text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
           >
             Done
           </button>

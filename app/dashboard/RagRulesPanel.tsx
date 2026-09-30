@@ -79,7 +79,7 @@ function RuleForm({
                 onClick={() => set({ higherIsBetter: h })}
                 className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
                   r.higherIsBetter === h
-                    ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
                     : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -148,7 +148,7 @@ function RuleForm({
           type="button"
           disabled={!r.name.trim()}
           onClick={() => onSave(r)}
-          className="flex-1 text-xs py-1.5 rounded-lg bg-[#005EB8] text-white font-medium hover:bg-[#003087] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 text-xs py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Save rule
         </button>
@@ -178,6 +178,7 @@ export default function RagRulesPanel({ rules, onChange, onClose }: RagRulesPane
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">RAG Rules</h2>
@@ -226,7 +227,7 @@ export default function RagRulesPanel({ rules, onChange, onClose }: RagRulesPane
                   <button
                     type="button"
                     onClick={() => setEditingId(rule.id)}
-                    className="text-xs text-[#005EB8] hover:underline"
+                    className="text-xs text-indigo-600 hover:underline"
                   >
                     Edit
                   </button>
@@ -253,7 +254,7 @@ export default function RagRulesPanel({ rules, onChange, onClose }: RagRulesPane
               type="button"
               onClick={() => setEditingId('new')}
               className="w-full text-sm py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400
-                         hover:border-[#005EB8] hover:text-[#005EB8] transition-colors"
+                         hover:border-indigo-400 hover:text-indigo-600 transition-colors"
             >
               + Add RAG rule
             </button>
@@ -264,7 +265,7 @@ export default function RagRulesPanel({ rules, onChange, onClose }: RagRulesPane
           <button
             type="button"
             onClick={onClose}
-            className="w-full text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium transition-colors"
+            className="w-full text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
           >
             Done
           </button>

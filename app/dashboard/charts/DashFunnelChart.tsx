@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -179,18 +179,18 @@ export default function DashFunnelChart({
     // Axes
     const xAxis = g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
     xAxis.select('.domain').attr('stroke', '#d1d5db');
-    xAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    xAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     const yAxis = g.append('g').call(d3.axisLeft(y).ticks(5).tickFormat((v) => asPercentage ? `${v}%` : String(v)));
     yAxis.select('.domain').attr('stroke', '#d1d5db');
-    yAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    yAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     // Axis labels
     g.append('text')
       .attr('x', innerW / 2)
       .attr('y', innerH + mb - 8)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 10)
+      .attr('font-size', 12)
       .attr('fill', '#9ca3af')
       .text('Volume (denominator)');
 
@@ -200,7 +200,7 @@ export default function DashFunnelChart({
         .attr('x', -innerH / 2)
         .attr('y', -ml + 14)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#9ca3af')
         .text(yLabel);
     }
@@ -215,7 +215,7 @@ export default function DashFunnelChart({
     items.forEach((item, i) => {
       const lx = i * 100;
       g.append('circle').attr('cx', lx + 4).attr('cy', legendY).attr('r', 4).attr('fill', item.color);
-      g.append('text').attr('x', lx + 12).attr('y', legendY + 4).attr('font-size', 9).attr('fill', '#6b7280').text(item.label);
+      g.append('text').attr('x', lx + 12).attr('y', legendY + 4).attr('font-size', 11).attr('fill', '#6b7280').text(item.label);
     });
   }, [analysis, title, yLabel, asPercentage, color, width, height, fontFamily]);
 

@@ -30,6 +30,7 @@ export default function DrillThroughModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
@@ -38,7 +39,7 @@ export default function DrillThroughModal({
               Filtered to{' '}
               <span className="font-medium text-gray-800">{filterColumn}</span>
               {' = '}
-              <span className="font-medium text-[#005EB8]">{filterValue}</span>
+              <span className="font-medium text-indigo-600">{filterValue}</span>
               {' · '}
               <span className="text-gray-500">{matchingRows.length} row{matchingRows.length !== 1 ? 's' : ''} from {dataset.name}</span>
             </p>
@@ -68,11 +69,11 @@ export default function DrillThroughModal({
                       key={col}
                       scope="col"
                       className={`text-left px-3 py-2 bg-gray-50 border border-gray-200 font-medium text-gray-700 whitespace-nowrap
-                                  ${col === filterColumn ? 'bg-blue-50 text-[#005EB8]' : ''}`}
+                                  ${col === filterColumn ? 'bg-indigo-50 text-indigo-600' : ''}`}
                     >
                       {col}
                       {col === filterColumn && (
-                        <span className="ml-1 text-[#005EB8] opacity-60">▼</span>
+                        <span className="ml-1 text-indigo-600 opacity-60">▼</span>
                       )}
                     </th>
                   ))}
@@ -85,7 +86,7 @@ export default function DrillThroughModal({
                       <td
                         key={col}
                         className={`px-3 py-1.5 border border-gray-100 text-gray-700 whitespace-nowrap
-                                    ${col === filterColumn ? 'font-medium text-[#005EB8] bg-blue-50/40' : ''}`}
+                                    ${col === filterColumn ? 'font-medium text-indigo-600 bg-indigo-50/40' : ''}`}
                       >
                         {row[col] == null ? <span className="text-gray-300 italic">—</span> : String(row[col])}
                       </td>

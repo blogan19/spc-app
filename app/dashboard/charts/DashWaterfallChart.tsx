@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -123,19 +123,19 @@ export default function DashWaterfallChart({
       const val = seg.isSubtotal ? seg.end : seg.end - seg.start;
       g.append('text')
         .attr('x', barX + x.bandwidth() / 2).attr('y', labelY)
-        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', '#374151')
+        .attr('text-anchor', 'middle').attr('font-size', 12).attr('fill', '#374151')
         .text(val >= 0 ? `+${val.toLocaleString()}` : val.toLocaleString());
     });
 
     // Axes
     const xAxis = g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).tickSizeOuter(0));
     xAxis.select('.domain').attr('stroke', '#d1d5db');
-    xAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280')
+    xAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280')
       .attr('transform', 'rotate(-35)').attr('text-anchor', 'end').attr('dx', '-0.5em').attr('dy', '0.15em');
 
     const yAxis = g.append('g').call(d3.axisLeft(y).ticks(5));
     yAxis.select('.domain').attr('stroke', '#d1d5db');
-    yAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    yAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     // Legend
     const items = [
@@ -147,7 +147,7 @@ export default function DashWaterfallChart({
     const legendY = innerH + mb - 12;
     items.forEach((item) => {
       g.append('rect').attr('x', lx).attr('y', legendY).attr('width', 10).attr('height', 10).attr('rx', 2).attr('fill', item.color);
-      g.append('text').attr('x', lx + 14).attr('y', legendY + 8).attr('font-size', 9).attr('fill', '#6b7280').text(item.label);
+      g.append('text').attr('x', lx + 14).attr('y', legendY + 8).attr('font-size', 11).attr('fill', '#6b7280').text(item.label);
       lx += 72;
     });
   }, [bars, title, positiveColor, negativeColor, subtotalColor, width, height, fontFamily, showGridLines]);

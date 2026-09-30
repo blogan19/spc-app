@@ -10,6 +10,7 @@ export default function PresentPickerModal({ onStoryMode, onSlideDeck, onClose }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-800">How would you like to present?</h2>
           <button type="button" onClick={onClose}
@@ -24,12 +25,12 @@ export default function PresentPickerModal({ onStoryMode, onSlideDeck, onClose }
           <button
             type="button"
             onClick={onStoryMode}
-            className="flex flex-col items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-[#005EB8] hover:bg-blue-50/50 transition-all text-left group"
+            className="flex flex-col items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-[#005EB8]/10 flex items-center justify-center text-[#005EB8] group-hover:bg-[#005EB8]/20 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-100 transition-colors">
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path d="M3 4h14v1H3zm0 3h14v1H3zm0 3h10v1H3zm0 3h7v1H3z"/>
-                <circle cx="16" cy="13" r="3" fill="#005EB8" opacity="0.6"/>
+                <circle cx="16" cy="13" r="3" fill="#4f46e5" opacity="0.6"/>
               </svg>
             </div>
             <div>
@@ -43,9 +44,9 @@ export default function PresentPickerModal({ onStoryMode, onSlideDeck, onClose }
           <button
             type="button"
             onClick={onSlideDeck}
-            className="flex flex-col items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-[#005EB8] hover:bg-blue-50/50 transition-all text-left group"
+            className="flex flex-col items-start gap-3 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-[#005EB8]/10 flex items-center justify-center text-[#005EB8] group-hover:bg-[#005EB8]/20 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-100 transition-colors">
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <rect x="2" y="3" width="16" height="11" rx="1.5"/>
                 <rect x="7" y="16" width="6" height="1.5" rx="0.75"/>

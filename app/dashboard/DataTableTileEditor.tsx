@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Dataset, DataTableTileConfig, ConditionalFormat } from '@/lib/dashboard/types';
 import DataTable from './charts/DataTable';
+import InlineDataEditor, { buildInlineDataset, type ColSpec } from './InlineDataEditor';
+import { newId } from '@/lib/dashboard/seed';
 
 interface DataTableTileEditorProps {
   datasets: Dataset[];
   initialConfig?: DataTableTileConfig;
   onSave: (config: DataTableTileConfig) => void;
   onCancel: () => void;
+  onUpsertDataset: (ds: import('@/lib/dashboard/types').Dataset) => void;
 }
 
 const OPERATORS: ConditionalFormat['operator'][] = ['>', '<', '>=', '<=', '==', '!='];
@@ -33,7 +36,15 @@ export default function DataTableTileEditor({
   initialConfig,
   onSave,
   onCancel,
+  onUpsertDataset,
 }: DataTableTileEditorProps) {
+  const INLINE_PREFIX = '__inline_';
+  const INLINE_COLS: ColSpec[] = [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'value', label: 'Value', type: 'number' },
+    { key: 'note', label: 'Note', type: 'text' },
+  ];
+
   const firstDs = datasets[0];
   const initDs = initialConfig
     ? datasets.find((d) => d.id === initialConfig.datasetId) ?? null
@@ -42,6 +53,28 @@ export default function DataTableTileEditor({
   const [config, setConfig] = useState<DataTableTileConfig>(
     initialConfig ?? defaultConfig(initDs?.id ?? '', initDs?.columns.map((c) => c.name) ?? []),
   );
+
+  const isInline = (initialConfig?.datasetId ?? '').startsWith(INLINE_PREFIX);
+  const [dataSource, setDataSource] = useState<'dataset' | 'inline'>(isInline ? 'inline' : 'dataset');
+  const inlineId = useRef(isInline ? initialConfig!.datasetId! : INLINE_PREFIX + newId());
+  const existingInlineDs = datasets.find((d) => d.id === inlineId.current);
+  const [inlineRows, setInlineRows] = useState<Record<string, string>[]>(
+    existingInlineDs?.rows?.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '')]))
+    ) ?? []
+  );
+
+  const handleInlineChange = (rows: Record<string, string>[]) => {
+    setInlineRows(rows);
+    onUpsertDataset(buildInlineDataset(inlineId.current, config.title || 'Inline data', INLINE_COLS, rows));
+  };
+
+  const switchToInline = () => {
+    const id = inlineId.current;
+    setDataSource('inline');
+    setConfig((c) => ({ ...c, datasetId: id, visibleColumns: [] }));
+    onUpsertDataset(buildInlineDataset(id, config.title || 'Inline data', INLINE_COLS, inlineRows));
+  };
 
   const set = <K extends keyof DataTableTileConfig>(k: K, v: DataTableTileConfig[K]) =>
     setConfig((c) => ({ ...c, [k]: v }));
@@ -85,7 +118,7 @@ export default function DataTableTileEditor({
     set('conditionalFormats', config.conditionalFormats.filter((_, idx) => idx !== i));
   };
 
-  const canSave = !!config.datasetId && visibleCols.length > 0;
+  const canSave = dataSource === 'inline' ? inlineRows.length > 0 : !!config.datasetId;
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -97,41 +130,60 @@ export default function DataTableTileEditor({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Dataset */}
+          {/* Data source */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Dataset</label>
-            {datasets.length === 0 ? (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                No datasets uploaded yet. Close this editor and upload a dataset first.
-              </p>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Data source</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+              <button type="button" onClick={() => setDataSource('dataset')}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'dataset' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Dataset
+              </button>
+              <button type="button" onClick={switchToInline}
+                className={`flex-1 text-xs py-1.5 transition-colors ${dataSource === 'inline' ? 'bg-indigo-600 text-white font-medium' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Enter data
+              </button>
+            </div>
+            {dataSource === 'dataset' ? (
+              datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <p className="text-xs text-slate-600">No datasets uploaded yet.</p>
+                  <button
+                    type="button"
+                    onClick={switchToInline}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Enter data manually →
+                  </button>
+                  <p className="text-xs text-slate-400">or use the <strong>Data</strong> button in the toolbar to upload a file.</p>
+                </div>
+              ) : (
+                <select value={config.datasetId} onChange={(e) => handleDatasetChange(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                  <option value="">— choose dataset —</option>
+                  {datasets.filter((d) => !d.id.startsWith(INLINE_PREFIX)).map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )
             ) : (
-              <select
-                value={config.datasetId}
-                onChange={(e) => handleDatasetChange(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">Select dataset…</option>
-                {datasets.map((ds) => (
-                  <option key={ds.id} value={ds.id}>{ds.name}</option>
-                ))}
-              </select>
+              <InlineDataEditor columns={INLINE_COLS} rows={inlineRows} onChange={handleInlineChange} />
             )}
           </div>
 
-          {activeDataset && (
-            <>
-              {/* Title */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Table title (optional)</label>
-                <input
-                  type="text"
-                  value={config.title}
-                  onChange={(e) => set('title', e.target.value)}
-                  placeholder="e.g. ED Attendances Q1"
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+          {/* Title */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Table title (optional)</label>
+            <input
+              type="text"
+              value={config.title}
+              onChange={(e) => set('title', e.target.value)}
+              placeholder="e.g. ED Attendances Q1"
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
 
+          {dataSource === 'dataset' && activeDataset && (
+            <>
               {/* Column visibility */}
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-1.5">
@@ -139,7 +191,7 @@ export default function DataTableTileEditor({
                   <button
                     type="button"
                     onClick={() => set('visibleColumns', [])}
-                    className="ml-2 text-[#005EB8] hover:underline font-normal"
+                    className="ml-2 text-indigo-600 hover:underline font-normal"
                   >
                     Show all
                   </button>
@@ -199,7 +251,7 @@ export default function DataTableTileEditor({
                       onClick={() => set('pageSize', n)}
                       className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
                         config.pageSize === n
-                          ? 'border-[#005EB8] bg-blue-50 text-[#005EB8] font-medium'
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
                           : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
@@ -217,7 +269,7 @@ export default function DataTableTileEditor({
                     <button
                       type="button"
                       onClick={addFormat}
-                      className="text-xs text-[#005EB8] hover:underline"
+                      className="text-xs text-indigo-600 hover:underline"
                     >
                       + Add rule
                     </button>
@@ -296,7 +348,7 @@ export default function DataTableTileEditor({
             type="button"
             disabled={!canSave}
             onClick={() => onSave(config)}
-            className="flex-1 text-sm py-2 rounded-xl bg-[#005EB8] hover:bg-[#003087] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 text-sm py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Add to dashboard
           </button>

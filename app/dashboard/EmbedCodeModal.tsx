@@ -58,6 +58,7 @@ export default function EmbedCodeModal({ state, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-2xl" />
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
@@ -90,7 +91,7 @@ export default function EmbedCodeModal({ state, onClose }: Props) {
                   onClick={() => setPreset(p.id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     preset === p.id
-                      ? 'bg-[#005EB8] text-white border-[#005EB8]'
+                      ? 'bg-indigo-600 text-white border-indigo-500'
                       : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
@@ -107,7 +108,7 @@ export default function EmbedCodeModal({ state, onClose }: Props) {
                     type="number"
                     value={customW}
                     onChange={(e) => setCustomW(e.target.value)}
-                    className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30"
+                    className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                   />
                 </div>
                 <span className="text-slate-400 mt-4">×</span>
@@ -117,7 +118,7 @@ export default function EmbedCodeModal({ state, onClose }: Props) {
                     type="number"
                     value={customH}
                     onChange={(e) => setCustomH(e.target.value)}
-                    className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#005EB8]/30"
+                    className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                   />
                 </div>
               </div>
@@ -168,7 +169,7 @@ export default function EmbedCodeModal({ state, onClose }: Props) {
             type="button"
             onClick={handleCopy}
             disabled={!shareUrl || loading}
-            className="px-4 py-2 text-sm font-medium bg-[#005EB8] text-white rounded-xl hover:bg-[#004da0] disabled:opacity-50 transition-colors flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {copied ? (
               <>

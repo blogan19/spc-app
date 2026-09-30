@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -168,12 +168,12 @@ export default function DashScatterChart({
       .call(d3.axisBottom(xScale).ticks(5).tickSizeOuter(0));
 
     xAxisGroup.select('.domain').attr('stroke', '#d1d5db');
-    xAxisGroup.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    xAxisGroup.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     // Y axis
     const yAxisGroup = g.append('g').call(d3.axisLeft(yScale).ticks(5));
     yAxisGroup.select('.domain').remove();
-    yAxisGroup.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    yAxisGroup.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     // X label
     if (xLabel) {
@@ -181,7 +181,7 @@ export default function DashScatterChart({
         .attr('x', innerW / 2)
         .attr('y', innerH + mb - 6)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .text(xLabel);
     }
@@ -193,7 +193,7 @@ export default function DashScatterChart({
         .attr('x', -innerH / 2)
         .attr('y', -ml + 14)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .text(yLabel);
     }
@@ -229,7 +229,7 @@ export default function DashScatterChart({
           .attr('x', 14)
           .attr('y', ry + 5)
           .attr('dominant-baseline', 'central')
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#374151')
           .text(truncated);
       });

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -148,7 +148,7 @@ export default function DashAreaChart({
         .call(d3.axisLeft(yScale).ticks(5))
         .call((ax) => ax.select('.domain').attr('stroke', '#d1d5db'))
         .selectAll('text')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280');
     } else {
       // Non-stacked: individual filled areas + lines
@@ -215,7 +215,7 @@ export default function DashAreaChart({
         .call(d3.axisLeft(yScale).ticks(5))
         .call((ax) => ax.select('.domain').attr('stroke', '#d1d5db'))
         .selectAll('text')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280');
     }
 
@@ -262,7 +262,7 @@ export default function DashAreaChart({
     if (rotateLbls) {
       xAxisGroup
         .selectAll('text')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .attr('transform', 'rotate(-35)')
         .attr('text-anchor', 'end')
@@ -271,7 +271,7 @@ export default function DashAreaChart({
     } else {
       xAxisGroup
         .selectAll('text')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .attr('dy', '1em');
     }
@@ -283,7 +283,7 @@ export default function DashAreaChart({
         .attr('x', -innerH / 2)
         .attr('y', -ml + 14)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#6b7280')
         .text(yLabel);
     }
@@ -294,7 +294,7 @@ export default function DashAreaChart({
         .attr('x', innerW / 2)
         .attr('y', innerH + mb - 6)
         .attr('text-anchor', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 12)
         .attr('fill', '#9ca3af')
         .text(xLabel);
     }
@@ -319,7 +319,7 @@ export default function DashAreaChart({
           .append('text')
           .attr('x', lx + 18)
           .attr('y', 0)
-          .attr('font-size', 10)
+          .attr('font-size', 12)
           .attr('fill', '#6b7280')
           .text(col);
       });

@@ -48,9 +48,17 @@ export function emptyDashboard(): DashboardState {
     stories: [],
     slideDecks: [],
     dashboard: {
-      title: 'New Dashboard',
+      title: 'My Dashboard',
       theme: { ...nhsTheme },
       tiles: [],
+      header: {
+        enabled: true,
+        title: 'My Dashboard',
+        subtitle: '',
+        bgColor: '#f8fafc',
+        textColor: '#1e293b',
+        subtitleColor: '#64748b',
+      },
     },
   };
 }

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
@@ -146,7 +146,7 @@ export default function DashBoxPlotChart({
     // Axes
     const xAxis = g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).tickSizeOuter(0));
     xAxis.select('.domain').attr('stroke', '#d1d5db');
-    xAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    xAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
     if (stats.length > 4) {
       xAxis.selectAll('text')
         .attr('transform', 'rotate(-35)').attr('text-anchor', 'end').attr('dx', '-0.5em').attr('dy', '0.15em');
@@ -154,13 +154,13 @@ export default function DashBoxPlotChart({
 
     const yAxis = g.append('g').call(d3.axisLeft(y).ticks(5));
     yAxis.select('.domain').attr('stroke', '#d1d5db');
-    yAxis.selectAll('text').attr('font-size', 10).attr('fill', '#6b7280');
+    yAxis.selectAll('text').attr('font-size', 12).attr('fill', '#6b7280');
 
     if (yLabel) {
       svg.append('text')
         .attr('transform', `rotate(-90)`)
         .attr('x', -(mt + innerH / 2)).attr('y', 14)
-        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', '#6b7280')
+        .attr('text-anchor', 'middle').attr('font-size', 12).attr('fill', '#6b7280')
         .text(yLabel);
     }
   }, [groups, title, yLabel, showOutliers, color, width, height, fontFamily, showGridLines]);
