@@ -27,7 +27,6 @@
     "pptxgenjs": "^4.0.1",
     "prisma": "^5.22.0",
     "react": "^18",
-    "react-annotation": "^2.2.1",
     "react-dom": "^18",
     "react-grid-layout": "^2.2.3",
     "resend": "^6.18.1",
