@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Lint is run separately via `npm run lint`; don't fail production builds on lint errors.
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       // pptxgenjs references node: scheme URIs; strip the prefix so
